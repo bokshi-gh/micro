@@ -23,6 +23,8 @@ A terminal-based text editor.
 
 > You can check the source code of the installer script [here](https://raw.githubusercontent.com/bokshi-gh/micro/main/scripts/install.sh).
 
+---
+
 ## Uninstall
 
 ```bash
