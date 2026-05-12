@@ -27,4 +27,4 @@ rm -rf "$TMP_DIR"
 
 echo
 echo -e "${GREEN}Installation complete!${RESET}"
-echo -e "Run '${TARGET} -h' to get started."
+echo -e "Run '${TARGET} -help' to get started."
