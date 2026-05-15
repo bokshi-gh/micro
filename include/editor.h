@@ -31,6 +31,9 @@ typedef enum {
 
 typedef struct {
   char *filename;
+
+  char **rows;
+  int row_count;
 } Editor;
 
 void init_editor();
