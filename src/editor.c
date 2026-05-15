@@ -70,7 +70,8 @@ void editor_free() {
 
 void refresh_screen() {
   write(STDOUT_FILENO, "\x1b[?25l", 6);  // hide cursor
-  write(STDOUT_FILENO, "\x1b[H", 3);     // home
+  clear_entire_screen();
+  move_cursor_to_home();
 
   int rows, cols;
   get_window_size(&rows, &cols);
