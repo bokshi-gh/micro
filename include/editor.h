@@ -5,4 +5,8 @@
 #define VERSION "0.0.1"
 #define DESCRIPTION "a terminal-based text editor" 
 
+typedef struct {
+  char *filename;
+} Editor;
+
 #endif
