@@ -43,7 +43,7 @@ void disable_raw_mode() { if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &trmnl.orig_ter
 void clear_entire_screen() { write(STDOUT_FILENO, "\x1b[2J", 4); }
 void move_cursor_to_home() { write(STDOUT_FILENO, "\x1b[H", 3); }
 
-void refress_screen() {
+void refresh_screen() {
   clear_entire_screen();
   move_cursor_to_home();
 }
