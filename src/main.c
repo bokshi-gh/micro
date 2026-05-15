@@ -7,12 +7,12 @@
 int main(int argc, char *argv[]) {
   handle_cli(argc, argv);
 
-  switch_to_alternate_screen_buffer();
   enable_raw_mode();
+  switch_to_alternate_screen_buffer();
 
   // IMPORTANT: atexit() executes functions in reverse order (LIFO)
-  atexit(return_to_main_screen_buffer);
   atexit(disable_raw_mode);
+  atexit(return_to_main_screen_buffer);
 
   init_terminal();
   init_editor();

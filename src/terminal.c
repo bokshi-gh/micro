@@ -23,9 +23,6 @@ void init_terminal() {
   trmnl.cx = 0;
 }
 
-void switch_to_alternate_screen_buffer() { write(STDOUT_FILENO, "\x1b[?1049h", 8); }
-void return_to_main_screen_buffer() { write(STDOUT_FILENO, "\x1b[?1049l", 8); }
-
 void enable_raw_mode() {
   struct termios raw = trmnl.orig_termios;
   raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
@@ -39,6 +36,9 @@ void enable_raw_mode() {
 }
 
 void disable_raw_mode() { if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &trmnl.orig_termios) == -1) die("tcsetattr"); } 
+
+void switch_to_alternate_screen_buffer() { write(STDOUT_FILENO, "\x1b[?1049h", 8); }
+void return_to_main_screen_buffer() { write(STDOUT_FILENO, "\x1b[?1049l", 8); }
 
 void clear_entire_screen() { write(STDOUT_FILENO, "\x1b[2J", 4); }
 void move_cursor_to_home() { write(STDOUT_FILENO, "\x1b[H", 3); }

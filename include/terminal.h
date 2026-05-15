@@ -24,11 +24,11 @@ typedef struct {
 
 void init_terminal();
 
-void switch_to_alternate_screen_buffer();
-void return_to_main_screen_buffer();
-
 void enable_raw_mode();
 void disable_raw_mode();
+
+void switch_to_alternate_screen_buffer();
+void return_to_main_screen_buffer();
 
 int get_window_size(int *rows, int *cols);
 
