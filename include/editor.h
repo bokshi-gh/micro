@@ -17,11 +17,11 @@
 
 typedef enum {
   TAB = '\t',
-  ENTER,
+  ENTER = '\r',
   BACKSPACE = 127,
-  DELETE,
+  DELETE = 1000,
 
-  ARROW_UP = 1000,
+  ARROW_UP,
   ARROW_DOWN,
   ARROW_LEFT,
   ARROW_RIGHT
