@@ -15,8 +15,8 @@
 typedef struct {
   struct termios orig_termios;
 
-  int *rows;
-  int *cols;
+  int rows;
+  int cols;
 
   int cy;
   int cx;

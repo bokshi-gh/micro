@@ -86,7 +86,6 @@ void process_keypress() {
     case ARROW_DOWN:
     case ARROW_LEFT:
     case ARROW_RIGHT:
-      update_cursor_position(c);
       break;
 
     default:
