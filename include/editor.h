@@ -9,6 +9,8 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "errors.h"
 #include "terminal.h"
 
