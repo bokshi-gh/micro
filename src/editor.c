@@ -70,13 +70,13 @@ void editor_free() {
 
 void refresh_screen() {
   write(STDOUT_FILENO, "\x1b[?25l", 6);  // hide cursor
-  clear_entire_screen();
-  move_cursor_to_home();
+  write(STDOUT_FILENO, "\x1b[2J\x1b[H", 7); // clear + home
 
   int rows, cols;
   get_window_size(&rows, &cols);
 
   for (int i = 0; i < rows; i++) {
+    write(STDOUT_FILENO, "\x1b[K", 3); // clear line
 
     if (i < edtr.row_count) {
       write(STDOUT_FILENO,
@@ -84,7 +84,6 @@ void refresh_screen() {
             strlen(edtr.rows[i]));
     }
 
-    write(STDOUT_FILENO, "\x1b[K", 3);  // clear line
     write(STDOUT_FILENO, "\r\n", 2);
   }
 
