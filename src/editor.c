@@ -70,10 +70,9 @@ void editor_free() {
 
 void refresh_screen() {
   write(STDOUT_FILENO, "\x1b[?25l", 6);  // hide cursor
-  move_cursor_to_home();
+  write(STDOUT_FILENO, "\x1b[H", 3);     // home
 
-  int rows = 0;
-  int cols = 0;
+  int rows, cols;
   get_window_size(&rows, &cols);
 
   for (int i = 0; i < rows; i++) {
@@ -82,8 +81,6 @@ void refresh_screen() {
       write(STDOUT_FILENO,
             edtr.rows[i],
             strlen(edtr.rows[i]));
-    } else {
-      write(STDOUT_FILENO, "~", 1);
     }
 
     write(STDOUT_FILENO, "\x1b[K", 3);  // clear line
@@ -145,7 +142,6 @@ void process_keypress() {
   int c = read_key();
 
   switch (c) {
-
     case CTRL_KEY('q'):
       editor_free();
       shutdown_editor();
@@ -153,41 +149,73 @@ void process_keypress() {
       break;
 
     case CTRL_KEY('s'):
-      /* save later */
+      // TODO: save file
       break;
 
     case ENTER:
-      /* TODO */
+      // TODO: split current line at cx
       break;
 
     case BACKSPACE:
     case DELETE:
-      /* TODO */
+      // TODO: delete character or merge lines
       break;
 
     case TAB:
-      /* TODO */
+      // TODO: insert spaces or tab
       break;
 
     case ARROW_UP:
-      if (edtr.cy > 0) edtr.cy--;
+      if (edtr.cy > 0) {
+        edtr.cy--;
+
+        int len = 0;
+        if (edtr.cy < edtr.row_count)
+          len = strlen(edtr.rows[edtr.cy]);
+
+        if (edtr.cx > len)
+          edtr.cx = len;
+      }
       break;
 
     case ARROW_DOWN:
-      if (edtr.cy < edtr.row_count - 1)
+      if (edtr.cy < edtr.row_count - 1) {
         edtr.cy++;
+
+        int len = strlen(edtr.rows[edtr.cy]);
+
+        if (edtr.cx > len)
+          edtr.cx = len;
+      }
       break;
 
     case ARROW_LEFT:
-      if (edtr.cx > 0) edtr.cx--;
+      if (edtr.cx > 0) {
+        edtr.cx--;
+      } else if (edtr.cy > 0) {
+        edtr.cy--;
+        edtr.cx = strlen(edtr.rows[edtr.cy]);
+      }
       break;
 
     case ARROW_RIGHT:
-      edtr.cx++;
+      if (edtr.cy < edtr.row_count) {
+
+        int len = strlen(edtr.rows[edtr.cy]);
+
+        if (edtr.cx < len) {
+          edtr.cx++;
+        } else if (edtr.cy < edtr.row_count - 1) {
+          edtr.cy++;
+          edtr.cx = 0;
+        }
+      }
       break;
 
     default:
-      /* insert character later */
+      if (c >= 32 && c <= 126) {
+        // TODO: insert character at (cx, cy)
+      }
       break;
   }
 }
