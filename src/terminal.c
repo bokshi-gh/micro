@@ -1,6 +1,6 @@
 #include "terminal.h"
 
-Terminal trmnl;
+static Terminal trmnl;
 
 int get_window_size(int *rows, int *cols) {
   struct winsize ws;
