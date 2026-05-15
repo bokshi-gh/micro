@@ -60,8 +60,11 @@ void process_keypress() {
   int c = read_key();
 
   switch (c) {
+    case CTRL_KEY('s'):
+      /* save */
+      break;
 
-    case CTRL_KEY('x'):
+    case CTRL_KEY('q'):
       refresh_screen();
       exit(0);
       break;
