@@ -40,8 +40,3 @@ void cleanup_terminal() {
 
 void clear_entire_screen() { write(STDOUT_FILENO, "\x1b[2J", 4); }
 void move_cursor_to_home() { write(STDOUT_FILENO, "\x1b[H", 3); }
-
-void refresh_screen() {
-  clear_entire_screen();
-  move_cursor_to_home();
-}

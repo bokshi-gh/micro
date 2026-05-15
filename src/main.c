@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
   atexit(return_to_main_screen_buffer);
 
   init_editor();
+  editor_open_file(argv[1]);
 
   while (1) { 
     refresh_screen();

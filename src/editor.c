@@ -6,9 +6,13 @@ void init_editor() {
   edtr.filename = NULL;
   edtr.rows = NULL;
   edtr.row_count = 0;
+  edtr.cy = 0;
+  edtr.cx = 0;
 }
 
-void editor_open_file() {
+void editor_open_file(const char *filename) {
+  edtr.filename = strdup(filename);
+
   FILE *fp = fopen(filename, "r");
   if (!fp) {
     return; // empty buffer if file doesn't exist
@@ -46,6 +50,41 @@ void editor_free() {
   }
   free(edtr.rows);
   free(edtr.filename);
+}
+
+void refresh_screen() {
+  // hide cursor (optional but nice)
+  write(STDOUT_FILENO, "\x1b[?25l", 6);
+
+  // move to home
+  write(STDOUT_FILENO, "\x1b[H", 3);
+
+  // draw rows
+  int rows;
+  int cols;
+  get_window_size(&rows, &cols);
+  for (int i = 0; i < rows; i++) {
+
+    if (i < edtr.row_count) {
+      write(STDOUT_FILENO, edtr.rows[i], strlen(edtr.rows[i]));
+    }
+
+    // clear rest of line
+    write(STDOUT_FILENO, "\x1b[K", 3);
+
+    write(STDOUT_FILENO, "\r\n", 2);
+  }
+
+  // 4. move cursor to editor position
+  char buf[32];
+  snprintf(buf, sizeof(buf),
+           "\x1b[%d;%dH",
+           edtr.cy + 1,
+           edtr.cx + 1);
+  write(STDOUT_FILENO, buf, strlen(buf));
+
+  // 5. show cursor
+  write(STDOUT_FILENO, "\x1b[?25h", 6);
 }
 
 int read_key() {

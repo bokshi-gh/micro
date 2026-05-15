@@ -34,9 +34,15 @@ typedef struct {
 
   char **rows;
   int row_count;
+
+  int cy;
+  int cx;
 } Editor;
 
 void init_editor();
+void editor_open_file();
+
+void refresh_screen();
 void process_keypress();
 
 #endif
