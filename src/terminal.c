@@ -1,6 +1,6 @@
 #include "terminal.h"
 
-static Terminal trmnl;
+static struct termios orig_termios;
 
 int get_window_size(int *rows, int *cols) {
   struct winsize ws;
@@ -14,17 +14,10 @@ int get_window_size(int *rows, int *cols) {
   }
 }
 
-void init_terminal() {
-  if (tcgetattr(STDIN_FILENO, &trmnl.orig_termios) == -1) die("tcgetattr");
-  
-  get_window_size(&trmnl.rows, &trmnl.cols);
-  
-  trmnl.cy = 0;
-  trmnl.cx = 0;
-}
-
 void enable_raw_mode() {
-  struct termios raw = trmnl.orig_termios;
+  if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
+  
+  struct termios raw = orig_termios;
   raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
   raw.c_oflag &= ~(OPOST);
   raw.c_cflag |= (CS8);
@@ -35,10 +28,15 @@ void enable_raw_mode() {
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
-void disable_raw_mode() { if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &trmnl.orig_termios) == -1) die("tcsetattr"); } 
+void disable_raw_mode() { if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1) die("tcsetattr"); } 
 
 void switch_to_alternate_screen_buffer() { write(STDOUT_FILENO, "\x1b[?1049h", 8); }
 void return_to_main_screen_buffer() { write(STDOUT_FILENO, "\x1b[?1049l", 8); }
+
+void cleanup_terminal() {
+  return_to_main_screen_buffer();
+  disable_raw_mode();
+}
 
 void clear_entire_screen() { write(STDOUT_FILENO, "\x1b[2J", 4); }
 void move_cursor_to_home() { write(STDOUT_FILENO, "\x1b[H", 3); }

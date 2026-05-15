@@ -65,7 +65,7 @@ void process_keypress() {
       break;
 
     case CTRL_KEY('q'):
-      refresh_screen();
+      shutdown_editor();
       exit(0);
       break;
 

@@ -14,7 +14,6 @@ int main(int argc, char *argv[]) {
   atexit(disable_raw_mode);
   atexit(return_to_main_screen_buffer);
 
-  init_terminal();
   init_editor();
 
   while (1) { 

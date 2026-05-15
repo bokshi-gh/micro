@@ -12,23 +12,13 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 
-typedef struct {
-  struct termios orig_termios;
-
-  int rows;
-  int cols;
-
-  int cy;
-  int cx;
-} Terminal;
-
-void init_terminal();
-
 void enable_raw_mode();
 void disable_raw_mode();
 
 void switch_to_alternate_screen_buffer();
 void return_to_main_screen_buffer();
+
+void cleanup_terminal();
 
 int get_window_size(int *rows, int *cols);
 

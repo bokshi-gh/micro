@@ -3,7 +3,9 @@
 
 #define TARGET "micro"
 #define VERSION "0.0.1"
-#define DESCRIPTION "a terminal-based text editor" 
+#define DESCRIPTION "a terminal-based text editor"
+
+#define shutdown_editor() cleanup_terminal()
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
