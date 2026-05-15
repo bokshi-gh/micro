@@ -22,6 +22,8 @@ typedef struct {
   int cx;
 } Terminal;
 
+void init_terminal();
+
 void switch_to_alternate_screen_buffer();
 void return_to_main_screen_buffer();
 
