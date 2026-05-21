@@ -68,6 +68,78 @@ void editor_free() {
   edtr.row_count = 0;
 }
 
+void insert_char(int c) {
+    // if no rows exist yet, add one empty row
+    if (edtr.row_count == 0) {
+        edtr.rows = realloc(edtr.rows, sizeof(char *) * 1);
+        edtr.rows[0] = strdup("");
+        edtr.row_count = 1;
+    }
+
+    char *row = edtr.rows[edtr.cy];
+    int len = strlen(row);
+
+    // allocate len+2: original + new char + null terminator
+    char *new_row = malloc(len + 2);
+
+    // copy everything before cursor
+    memcpy(new_row, row, edtr.cx);
+
+    // insert the new character
+    new_row[edtr.cx] = c;
+
+    // copy everything from cursor to end, including '\0'
+    memcpy(new_row + edtr.cx + 1, row + edtr.cx, len - edtr.cx + 1);
+
+    free(edtr.rows[edtr.cy]);
+    edtr.rows[edtr.cy] = new_row;
+
+    edtr.cx++;  // advance cursor past inserted char
+}
+
+// Option A: insert literal \t (stored as \t, rendered expanded)
+void insert_tab() {
+    insert_char('\t');
+}
+
+/*
+// Option B: insert 4 spaces (simpler cursor math, no tab expansion needed)
+void insert_tab() {
+    int spaces = 4 - (edtr.cx % 4);  // align to next tab stop
+    for (int i = 0; i < spaces; i++) {
+        insert_char(' ');
+    }
+}
+*/
+
+void split_row_at_cursor() {
+    // make room for one more row pointer
+    edtr.rows = realloc(edtr.rows, sizeof(char *) * (edtr.row_count + 1));
+
+    // shift every row below cursor down by one slot
+    // memmove handles overlapping regions safely
+    memmove(
+        &edtr.rows[edtr.cy + 2],   // destination: two slots below current
+        &edtr.rows[edtr.cy + 1],   // source: one slot below current
+        sizeof(char *) * (edtr.row_count - edtr.cy - 1)
+    );
+
+    char *row = edtr.rows[edtr.cy];
+    int len = strlen(row);
+
+    // new row = everything FROM cursor to end
+    edtr.rows[edtr.cy + 1] = malloc(len - edtr.cx + 1);
+    memcpy(edtr.rows[edtr.cy + 1], row + edtr.cx, len - edtr.cx + 1);
+
+    // current row = everything BEFORE cursor (truncate at cx)
+    edtr.rows[edtr.cy] = realloc(row, edtr.cx + 1);
+    edtr.rows[edtr.cy][edtr.cx] = '\0';
+
+    edtr.row_count++;
+    edtr.cy++;   // move cursor to the new row
+    edtr.cx = 0; // beginning of new row
+}
+
 void refresh_screen() {
   write(STDOUT_FILENO, "\x1b[?25l", 6); // hide cursor
   clear_entire_screen_and_move_cursor_to_home();
@@ -153,6 +225,7 @@ void process_keypress() {
       break;
 
     case ENTER:
+      split_row_at_cursor();
       break;
 
     case BACKSPACE:
@@ -160,6 +233,7 @@ void process_keypress() {
       break;
 
     case TAB:
+      insert_tab();
       break;
 
     case ARROW_UP:
@@ -202,6 +276,7 @@ void process_keypress() {
 
     default:
       if (c >= 32 && c <= 126) {
+        insert_char(c);
       }
       break;
   }
