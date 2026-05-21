@@ -36,11 +36,10 @@ void editor_open_file(const char *filename) {
   size_t cap = 0;
 
   while (getline(&line, &cap, fp) != -1) {
-
+    // strip \n first, then \r if present
     int len = strlen(line);
-    if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
-      line[len - 1] = '\0';
-    }
+    if (len > 0 && line[len-1] == '\n') line[--len] = '\0';
+    if (len > 0 && line[len-1] == '\r') line[--len] = '\0';
 
     char **new_rows = realloc(edtr.rows,
                               sizeof(char *) * (edtr.row_count + 1));
