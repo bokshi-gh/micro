@@ -12,12 +12,6 @@ Editor *get_editor() {
   return &edtr;
 }
 
-static int line_len(int y) {
-  if (y < 0 || y >= edtr.row_count || !edtr.rows[y])
-    return 0;
-  return strlen(edtr.rows[y]);
-}
-
 void init_editor() {
   edtr.filename = NULL;
   edtr.rows = NULL;
@@ -166,7 +160,7 @@ void process_keypress() {
     case ARROW_UP:
       if (edtr.cy > 0) {
         edtr.cy--;
-        int len = line_len(edtr.cy);
+        int len = strlen(edtr.rows[edtr.cy]);
         if (edtr.cx > len) edtr.cx = len;
       }
       break;
@@ -174,7 +168,7 @@ void process_keypress() {
     case ARROW_DOWN:
       if (edtr.cy < edtr.row_count - 1) {
         edtr.cy++;
-        int len = line_len(edtr.cy);
+        int len = strlen(edtr.rows[edtr.cy]);
         if (edtr.cx > len) edtr.cx = len;
       }
       break;
@@ -184,13 +178,13 @@ void process_keypress() {
         edtr.cx--;
       } else if (edtr.cy > 0) {
         edtr.cy--;
-        edtr.cx = line_len(edtr.cy);
+        edtr.cx = strlen(edtr.rows[edtr.cy]);
       }
       break;
 
     case ARROW_RIGHT:
       if (edtr.cy < edtr.row_count) {
-        int len = line_len(edtr.cy);
+        int len = strlen(edtr.rows[edtr.cy]);
 
         if (edtr.cx < len) {
           edtr.cx++;
@@ -206,16 +200,4 @@ void process_keypress() {
       }
       break;
   }
-
-  if (edtr.row_count == 0) {
-    edtr.cy = 0;
-    edtr.cx = 0;
-  }
-
-  if (edtr.cy >= edtr.row_count && edtr.row_count > 0) {
-    edtr.cy = edtr.row_count - 1;
-  }
-
-  int len = line_len(edtr.cy);
-  if (edtr.cx > len) edtr.cx = len;
 }
