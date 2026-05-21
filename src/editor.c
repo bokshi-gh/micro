@@ -8,9 +8,14 @@
 
 static Editor edtr;
 
-/* expose if needed elsewhere */
 Editor *get_editor() {
   return &edtr;
+}
+
+static int line_len(int y) {
+  if (y < 0 || y >= edtr.row_count || !edtr.rows[y])
+    return 0;
+  return strlen(edtr.rows[y]);
 }
 
 void init_editor() {
@@ -51,10 +56,6 @@ void editor_open_file(const char *filename) {
   fclose(fp);
 }
 
-// Frees all editor-owned heap memory.
-// Note: not strictly required at program exit because the OS
-// reclaims all process memory automatically, but we still do it
-// for good practice and to catch leaks during development.
 void editor_free() {
   for (int i = 0; i < edtr.row_count; i++) {
     free(edtr.rows[i]);
@@ -69,23 +70,22 @@ void editor_free() {
 }
 
 void refresh_screen() {
-  write(STDOUT_FILENO, "\x1b[?25l", 6);  // hide cursor
-  write(STDOUT_FILENO, "\x1b[H", 3);     // ONLY home (no need full clear)
+  write(STDOUT_FILENO, "\x1b[?25l", 6);
+  write(STDOUT_FILENO, "\x1b[2J\x1b[H", 7);
 
   int rows, cols;
   get_window_size(&rows, &cols);
 
-  for (int i = 0; i < rows; i++) {
+  int i;
 
-    write(STDOUT_FILENO, "\x1b[K", 3); // clear line FIRST
+  for (i = 0; i < edtr.row_count; i++) {
+    write(STDOUT_FILENO, "\x1b[K", 3);
+    write(STDOUT_FILENO, edtr.rows[i], strlen(edtr.rows[i]));
+    if (i < edtr.row_count - 1) write(STDOUT_FILENO, "\r\n", 2);
+  }
 
-    if (i < edtr.row_count) {
-      write(STDOUT_FILENO,
-            edtr.rows[i],
-            strlen(edtr.rows[i]));
-    }
-
-    write(STDOUT_FILENO, "\r\n", 2);
+  for (; i < rows; i++) {
+    write(STDOUT_FILENO, "\x1b[K\r\n", 5);
   }
 
   char buf[32];
@@ -96,7 +96,7 @@ void refresh_screen() {
 
   write(STDOUT_FILENO, buf, strlen(buf));
 
-  write(STDOUT_FILENO, "\x1b[?25h", 6); // show cursor
+  write(STDOUT_FILENO, "\x1b[?25h", 6);
 }
 
 int read_key() {
@@ -143,6 +143,7 @@ void process_keypress() {
   int c = read_key();
 
   switch (c) {
+
     case CTRL_KEY('q'):
       editor_free();
       shutdown_editor();
@@ -150,43 +151,31 @@ void process_keypress() {
       break;
 
     case CTRL_KEY('s'):
-      // TODO: save file
       break;
 
     case ENTER:
-      // TODO: split current line at cx
       break;
 
     case BACKSPACE:
     case DELETE:
-      // TODO: delete character or merge lines
       break;
 
     case TAB:
-      // TODO: insert spaces or tab
       break;
 
     case ARROW_UP:
       if (edtr.cy > 0) {
         edtr.cy--;
-
-        int len = 0;
-        if (edtr.cy < edtr.row_count)
-          len = strlen(edtr.rows[edtr.cy]);
-
-        if (edtr.cx > len)
-          edtr.cx = len;
+        int len = line_len(edtr.cy);
+        if (edtr.cx > len) edtr.cx = len;
       }
       break;
 
     case ARROW_DOWN:
       if (edtr.cy < edtr.row_count - 1) {
         edtr.cy++;
-
-        int len = strlen(edtr.rows[edtr.cy]);
-
-        if (edtr.cx > len)
-          edtr.cx = len;
+        int len = line_len(edtr.cy);
+        if (edtr.cx > len) edtr.cx = len;
       }
       break;
 
@@ -195,14 +184,13 @@ void process_keypress() {
         edtr.cx--;
       } else if (edtr.cy > 0) {
         edtr.cy--;
-        edtr.cx = strlen(edtr.rows[edtr.cy]);
+        edtr.cx = line_len(edtr.cy);
       }
       break;
 
     case ARROW_RIGHT:
-      if (edtr.cy < edtr.row_count - 1) {
-
-        int len = strlen(edtr.rows[edtr.cy]);
+      if (edtr.cy < edtr.row_count) {
+        int len = line_len(edtr.cy);
 
         if (edtr.cx < len) {
           edtr.cx++;
@@ -215,8 +203,19 @@ void process_keypress() {
 
     default:
       if (c >= 32 && c <= 126) {
-        // TODO: insert character at (cx, cy)
       }
       break;
   }
+
+  if (edtr.row_count == 0) {
+    edtr.cy = 0;
+    edtr.cx = 0;
+  }
+
+  if (edtr.cy >= edtr.row_count && edtr.row_count > 0) {
+    edtr.cy = edtr.row_count - 1;
+  }
+
+  int len = line_len(edtr.cy);
+  if (edtr.cx > len) edtr.cx = len;
 }
