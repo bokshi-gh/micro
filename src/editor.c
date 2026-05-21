@@ -12,6 +12,12 @@ Editor *get_editor() {
   return &edtr;
 }
 
+static int line_len(int y) {
+  if (y < 0 || y >= edtr.row_count || !edtr.rows[y])
+    return 0;
+  return strlen(edtr.rows[y]);
+}
+
 void init_editor() {
   edtr.filename = NULL;
   edtr.rows = NULL;
@@ -64,8 +70,8 @@ void editor_free() {
 }
 
 void refresh_screen() {
-  write(STDOUT_FILENO, "\x1b[?25l", 6);
-  write(STDOUT_FILENO, "\x1b[2J\x1b[H", 7);
+  write(STDOUT_FILENO, "\x1b[?25l", 6); // hide cursor
+  clear_entire_screen_and_move_cursor_to_home();
 
   int rows, cols;
   get_window_size(&rows, &cols);
@@ -90,7 +96,7 @@ void refresh_screen() {
 
   write(STDOUT_FILENO, buf, strlen(buf));
 
-  write(STDOUT_FILENO, "\x1b[?25h", 6);
+  write(STDOUT_FILENO, "\x1b[?25h", 6); // show cursor
 }
 
 int read_key() {
@@ -160,7 +166,7 @@ void process_keypress() {
     case ARROW_UP:
       if (edtr.cy > 0) {
         edtr.cy--;
-        int len = strlen(edtr.rows[edtr.cy]);
+        int len = line_len(edtr.cy);
         if (edtr.cx > len) edtr.cx = len;
       }
       break;
@@ -168,7 +174,7 @@ void process_keypress() {
     case ARROW_DOWN:
       if (edtr.cy < edtr.row_count - 1) {
         edtr.cy++;
-        int len = strlen(edtr.rows[edtr.cy]);
+        int len = line_len(edtr.cy);
         if (edtr.cx > len) edtr.cx = len;
       }
       break;
@@ -178,13 +184,13 @@ void process_keypress() {
         edtr.cx--;
       } else if (edtr.cy > 0) {
         edtr.cy--;
-        edtr.cx = strlen(edtr.rows[edtr.cy]);
+        edtr.cx = line_len(edtr.cy);
       }
       break;
 
     case ARROW_RIGHT:
       if (edtr.cy < edtr.row_count) {
-        int len = strlen(edtr.rows[edtr.cy]);
+        int len = line_len(edtr.cy);
 
         if (edtr.cx < len) {
           edtr.cx++;
@@ -200,4 +206,16 @@ void process_keypress() {
       }
       break;
   }
+
+  if (edtr.row_count == 0) {
+    edtr.cy = 0;
+    edtr.cx = 0;
+  }
+
+  if (edtr.cy >= edtr.row_count && edtr.row_count > 0) {
+    edtr.cy = edtr.row_count - 1;
+  }
+
+  int len = line_len(edtr.cy);
+  if (edtr.cx > len) edtr.cx = len;
 }

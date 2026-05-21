@@ -26,4 +26,6 @@ void clear_entire_screen();
 
 void move_cursor_to_home();
 
+void clear_entire_screen_and_move_cursor_to_home();
+
 #endif
