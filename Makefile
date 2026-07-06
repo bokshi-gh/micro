@@ -1,14 +1,9 @@
-CC = gcc
 CXX = g++
-
-CFLAGS = -std=c99 -Wall -Wextra -pedantic -O2 -Iinclude
 CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -O2 -Iinclude
 
-SRC_C = src/main.c src/cli.c src/terminal.c src/errors.c
-SRC_CPP = src/editor.cpp
+SRC_CPP = src/main.cpp src/terminal.cpp src/errors.cpp src/cli.cpp src/editor.cpp
 
-OBJ = $(SRC_C:.c=.o) $(SRC_CPP:.cpp=.o)
-
+OBJ = $(SRC_CPP:.cpp=.o)
 TARGET = micro
 
 PREFIX = /usr/local
@@ -18,9 +13,6 @@ all: $(TARGET)
 
 $(TARGET): $(OBJ)
 	$(CXX) $(OBJ) -o $(TARGET)
-
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
