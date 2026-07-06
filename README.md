@@ -1,13 +1,6 @@
-# micro
+# Text Editor (micro)
 
 A terminal-based text editor.
-
----
-
-## Features
-
-- Fast and lightweight
-- Terminal-based interface
 
 ---
 
