@@ -23,15 +23,17 @@ namespace cli {
                config::color::YELLOW, config::color::RESET);
         
         printf("\nKeybindings:\n");
-        printf("  %sCtrl-Q%s              Quit editor\n", 
+        printf("  %sCtrl-X%s              Quit editor\n", 
                config::color::YELLOW, config::color::RESET);
         printf("  %sCtrl-S%s              Save file\n", 
                config::color::YELLOW, config::color::RESET);
         printf("  %sCtrl-O%s              Open file\n", 
                config::color::YELLOW, config::color::RESET);
+        printf("  %sCtrl-V%s              Paste clipboard content\n", 
+               config::color::YELLOW, config::color::RESET);
         printf("  %sArrow Keys%s          Navigate\n", 
                config::color::YELLOW, config::color::RESET);
-        printf("  %sTab%s                 Insert tab\n", 
+        printf("  %sTab%s                 Insert tab (4 spaces)\n", 
                config::color::YELLOW, config::color::RESET);
     }
 
