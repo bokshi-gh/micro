@@ -12,6 +12,7 @@ namespace terminal {
     void return_to_main_screen_buffer();
     void clear_screen();
     void move_cursor_to_home();
+    void move_cursor_to(int row, int col);
     void hide_cursor();
     void show_cursor();
     void clear_line();
