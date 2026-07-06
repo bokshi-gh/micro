@@ -1,8 +1,8 @@
-CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra -pedantic -O2 -Iinclude
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -O2 -Iinclude
 
-SRC = src/main.c src/cli.c src/terminal.c src/editor.c src/errors.c
-OBJ = $(SRC:.c=.o)
+SRC = src/main.cpp src/cli.cpp src/terminal.cpp src/editor.cpp src/errors.cpp
+OBJ = $(SRC:.cpp=.o)
 
 TARGET = micro
 
@@ -12,10 +12,10 @@ BINDIR = $(PREFIX)/bin
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
+	$(CXX) $(CXXFLAGS) $(OBJ) -o $(TARGET)
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJ) $(TARGET)
