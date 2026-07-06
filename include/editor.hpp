@@ -6,7 +6,6 @@
 #include "terminal.hpp"
 
 namespace editor {
-    // Key codes
     enum class Key {
         NONE = 0,
         ENTER = 13,
@@ -18,26 +17,27 @@ namespace editor {
         ARROW_RIGHT = 1004,
         TAB = 9,
         ESC = 27,
-        CTRL_X = 24,   // Ctrl+X - Quit
-        CTRL_S = 19,   // Ctrl+S - Save
-        CTRL_O = 15,   // Ctrl+O - Open file
-        CTRL_V = 22,   // Ctrl+V - Paste clipboard
+        CTRL_X = 24,
+        CTRL_S = 19,
+        CTRL_O = 15,
+        CTRL_V = 22,
     };
 
     class Editor {
     private:
         struct Row {
             std::string chars;
-            std::vector<int> render_indices;  // For future rendering features
         };
         
         std::string filename;
         std::vector<Row> rows;
         int cursor_row = 0;
         int cursor_col = 0;
+        int scroll_row = 0;  // Vertical scroll offset
+        int scroll_col = 0;  // Horizontal scroll offset
         bool dirty = false;
         bool running = true;
-        std::string clipboard;  // For copy/paste
+        std::string clipboard;
         std::unique_ptr<terminal::TerminalGuard> terminal_guard;
 
         // Row operations
@@ -54,7 +54,7 @@ namespace editor {
         void delete_char();
         void backspace();
         void paste_clipboard();
-        void copy_selection();  // For future selection support
+        void copy_selection();
         
         // Navigation
         void move_cursor_up();
@@ -63,6 +63,7 @@ namespace editor {
         void move_cursor_right();
         void move_cursor_to(int row, int col);
         void clamp_cursor();
+        void scroll_cursor();
         
         // File operations
         void save_file();
@@ -74,6 +75,7 @@ namespace editor {
         void move_cursor();
         void show_status_bar(int term_cols);
         void show_status_message(const std::string& message);
+        void draw_row(const Row& row, int row_num, int term_cols);
         
         // Input
         Key read_key();
