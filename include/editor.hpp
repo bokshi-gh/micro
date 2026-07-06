@@ -20,7 +20,6 @@ namespace editor {
         ESC = 27,
         CTRL_X = 24,   // Ctrl+X - Quit
         CTRL_S = 19,   // Ctrl+S - Save
-        CTRL_O = 15,   // Ctrl+O - Open file
         CTRL_V = 22,   // Ctrl+V - Paste clipboard
     };
 
@@ -72,6 +71,7 @@ namespace editor {
         // Rendering
         void render_rows(int term_rows, int term_cols);
         void move_cursor();
+        void show_status_bar(int term_cols);
         void show_status_message(const std::string& message);
         
         // Input
