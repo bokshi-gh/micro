@@ -1,90 +1,78 @@
-#include "terminal.hpp"
-#include <iostream>
-#include <cstring>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <errno.h>
+#include "cli.hpp"
+#include "config.hpp"
 
-namespace terminal {
-    static struct termios orig_termios;
-    static bool raw_mode_enabled = false;
-
-    std::pair<int, int> get_window_size() {
-        struct winsize ws;
-        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-            return {config::DEFAULT_ROWS, config::DEFAULT_COLS};
-        }
-        return {ws.ws_row, ws.ws_col};
+namespace cli {
+    void show_no_input() {
+        fprintf(stderr, "%s: no input file provided\n", config::TARGET);
+        fprintf(stderr, "Try %s'%s --help'%s for more information.\n", 
+                config::color::GREEN, config::TARGET, config::color::RESET);
     }
 
-    int enable_raw_mode() {
-        if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) {
-            std::cerr << "Error: tcgetattr failed: " << strerror(errno) << std::endl;
-            return -1;
+    void show_help() {
+        printf("%s %s - %s\n\n", 
+               config::color::BOLD, config::TARGET, config::DESCRIPTION);
+        printf("%s", config::color::RESET);
+        printf("Usage: %s [OPTIONS] [FILE]\n\n", config::TARGET);
+        
+        printf("Options:\n");
+        printf("  %s-h%s, %s--help%s      Show this help message\n", 
+               config::color::YELLOW, config::color::RESET, 
+               config::color::YELLOW, config::color::RESET);
+        printf("  %s-v%s, %s--version%s   Show version information\n", 
+               config::color::YELLOW, config::color::RESET,
+               config::color::YELLOW, config::color::RESET);
+        
+        printf("\nKeybindings:\n");
+        printf("  %sCtrl-Q%s              Quit editor\n", 
+               config::color::YELLOW, config::color::RESET);
+        printf("  %sCtrl-S%s              Save file\n", 
+               config::color::YELLOW, config::color::RESET);
+        printf("  %sCtrl-O%s              Open file\n", 
+               config::color::YELLOW, config::color::RESET);
+        printf("  %sArrow Keys%s          Navigate\n", 
+               config::color::YELLOW, config::color::RESET);
+        printf("  %sTab%s                 Insert tab\n", 
+               config::color::YELLOW, config::color::RESET);
+    }
+
+    void show_version() {
+        printf("%s %s\n", config::TARGET, config::VERSION);
+    }
+
+    void show_unknown(const std::string& arg) {
+        fprintf(stderr, "%s: unknown option '%s'\n", config::TARGET, arg.c_str());
+        fprintf(stderr, "Try %s'%s --help'%s for more information.\n", 
+                config::color::GREEN, config::TARGET, config::color::RESET);
+    }
+
+    Options parse_arguments(int argc, char* argv[]) {
+        Options opts;
+        
+        for (int i = 1; i < argc; i++) {
+            std::string arg = argv[i];
+            
+            if (arg == "-h" || arg == "--help") {
+                opts.show_help = true;
+                return opts;
+            } else if (arg == "-v" || arg == "--version") {
+                opts.show_version = true;
+                return opts;
+            } else if (arg[0] == '-') {
+                show_unknown(arg);
+                exit(1);
+            } else if (opts.filename.empty()) {
+                opts.filename = arg;
+            } else {
+                fprintf(stderr, "%s: too many arguments\n", config::TARGET);
+                exit(1);
+            }
         }
         
-        struct termios raw = orig_termios;
-        raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-        raw.c_oflag &= ~(OPOST);
-        raw.c_cflag |= (CS8);
-        raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-        raw.c_cc[VMIN] = 0;
-        raw.c_cc[VTIME] = 1;
-
-        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
-            std::cerr << "Error: tcsetattr failed: " << strerror(errno) << std::endl;
-            return -1;
+        if (opts.filename.empty()) {
+            show_no_input();
+            exit(1);
         }
         
-        raw_mode_enabled = true;
-        return 0;
-    }
-
-    int disable_raw_mode() {
-        if (!raw_mode_enabled) return 0;
-        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1) {
-            std::cerr << "Error: tcsetattr failed: " << strerror(errno) << std::endl;
-            return -1;
-        }
-        raw_mode_enabled = false;
-        return 0;
-    }
-
-    void switch_to_alternate_screen_buffer() {
-        write(STDOUT_FILENO, "\x1b[?1049h", 8);
-    }
-
-    void return_to_main_screen_buffer() {
-        write(STDOUT_FILENO, "\x1b[?1049l", 8);
-    }
-
-    void clear_screen() {
-        write(STDOUT_FILENO, "\x1b[2J", 4);
-    }
-
-    void move_cursor_to_home() {
-        write(STDOUT_FILENO, "\x1b[H", 3);
-    }
-
-    void hide_cursor() {
-        write(STDOUT_FILENO, "\x1b[?25l", 6);
-    }
-
-    void show_cursor() {
-        write(STDOUT_FILENO, "\x1b[?25h", 6);
-    }
-
-    void clear_line() {
-        write(STDOUT_FILENO, "\x1b[K", 3);
-    }
-
-    TerminalGuard::TerminalGuard() {
-        enable_raw_mode();
-        switch_to_alternate_screen_buffer();
-    }
-
-    TerminalGuard::~TerminalGuard() {
-        return_to_main_screen_buffer();
-        disable_raw_mode();
+        return opts;
     }
 }
