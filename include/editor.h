@@ -31,10 +31,9 @@ typedef enum {
 } KeyboardKey;
 
 typedef struct {
-  char *filename;
+  string filename;
 
-  char **rows;
-  int row_count;
+  vector<string> rows;
 
   int cy;
   int cx;
