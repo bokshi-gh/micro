@@ -57,6 +57,10 @@ namespace editor {
         
         file.close();
         dirty = false;
+        cursor_row = 0;
+        cursor_col = 0;
+        scroll_row = 0;
+        scroll_col = 0;
     }
 
     void Editor::save_file() {
@@ -93,6 +97,7 @@ namespace editor {
         row.chars.insert(cursor_col, 1, c);
         cursor_col++;
         dirty = true;
+        scroll_cursor();
     }
 
     void Editor::insert_tab() {
@@ -116,6 +121,7 @@ namespace editor {
         cursor_row++;
         cursor_col = 0;
         dirty = true;
+        scroll_cursor();
     }
 
     void Editor::delete_char() {
@@ -146,6 +152,7 @@ namespace editor {
             delete_row(cursor_row + 1);
             dirty = true;
         }
+        scroll_cursor();
     }
 
     void Editor::paste_clipboard() {
@@ -175,6 +182,7 @@ namespace editor {
         if (cursor_row > 0) {
             cursor_row--;
             clamp_cursor();
+            scroll_cursor();
         }
     }
 
@@ -182,6 +190,7 @@ namespace editor {
         if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
             cursor_row++;
             clamp_cursor();
+            scroll_cursor();
         }
     }
 
@@ -192,6 +201,7 @@ namespace editor {
             cursor_row--;
             cursor_col = get_row_length(cursor_row);
         }
+        scroll_cursor();
     }
 
     void Editor::move_cursor_right() {
@@ -202,11 +212,13 @@ namespace editor {
             cursor_row++;
             cursor_col = 0;
         }
+        scroll_cursor();
     }
 
     void Editor::move_cursor_to(int row, int col) {
         cursor_row = std::clamp(row, 0, static_cast<int>(rows.size()) - 1);
         cursor_col = std::clamp(col, 0, get_row_length(cursor_row));
+        scroll_cursor();
     }
 
     void Editor::clamp_cursor() {
@@ -214,6 +226,131 @@ namespace editor {
         if (cursor_col > len) {
             cursor_col = len;
         }
+    }
+
+    void Editor::scroll_cursor() {
+        // Get terminal size
+        auto [term_rows, term_cols] = terminal::get_window_size();
+        int line_num_width = 4; // Width for line numbers
+        int usable_cols = term_cols - line_num_width - 1;
+        
+        // Vertical scroll
+        if (cursor_row < scroll_row) {
+            scroll_row = cursor_row;
+        }
+        if (cursor_row >= scroll_row + term_rows - 1) {
+            scroll_row = cursor_row - term_rows + 2;
+        }
+        
+        // Horizontal scroll (accounting for line numbers)
+        if (cursor_col < scroll_col) {
+            scroll_col = cursor_col;
+        }
+        if (cursor_col >= scroll_col + usable_cols) {
+            scroll_col = cursor_col - usable_cols + 1;
+        }
+        
+        // Ensure scroll doesn't go negative
+        if (scroll_row < 0) scroll_row = 0;
+        if (scroll_col < 0) scroll_col = 0;
+    }
+
+    void Editor::draw_row(const Row& row, int row_num, int term_cols) {
+        int line_num_width = 4;
+        int usable_cols = term_cols - line_num_width - 1;
+        
+        // Show line number
+        std::string line_num = std::to_string(row_num + 1);
+        std::string padding(line_num_width - line_num.length(), ' ');
+        std::string line_display = "\x1b[2m" + padding + line_num + " \x1b[0m";
+        write(STDOUT_FILENO, line_display.c_str(), line_display.length());
+        
+        // Display text with horizontal scrolling
+        int start = scroll_col;
+        int len = row.chars.length();
+        
+        if (start >= len) {
+            // If scrolled past end, just show empty line
+            write(STDOUT_FILENO, "", 0);
+        } else {
+            int display_len = std::min(usable_cols, len - start);
+            write(STDOUT_FILENO, row.chars.c_str() + start, display_len);
+        }
+    }
+
+    void Editor::render_rows(int term_rows, int term_cols) {
+        int max_rows = std::min(term_rows - 1, static_cast<int>(rows.size()) - scroll_row);
+        
+        for (int i = 0; i < max_rows; i++) {
+            terminal::clear_line();
+            int actual_row = i + scroll_row;
+            draw_row(rows[actual_row], actual_row, term_cols);
+            
+            if (i < max_rows - 1 || rows.size() > static_cast<size_t>(scroll_row + max_rows)) {
+                write(STDOUT_FILENO, "\r\n", 2);
+            }
+        }
+        
+        // Clear remaining lines
+        for (int i = max_rows; i < term_rows - 1; i++) {
+            terminal::clear_line();
+            if (i < term_rows - 2) {
+                write(STDOUT_FILENO, "\r\n", 2);
+            }
+        }
+    }
+
+    void Editor::move_cursor() {
+        int line_num_width = 4;
+        int screen_row = cursor_row - scroll_row;
+        int screen_col = cursor_col - scroll_col + line_num_width;
+        
+        // Ensure cursor is within screen bounds
+        if (screen_row < 0) screen_row = 0;
+        if (screen_col < 0) screen_col = 0;
+        
+        char buf[32];
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", screen_row + 1, screen_col + 1);
+        write(STDOUT_FILENO, buf, strlen(buf));
+    }
+
+    void Editor::show_status_bar(int term_cols) {
+        write(STDOUT_FILENO, "\x1b[0m", 4);
+        terminal::clear_line();
+        
+        std::string left_status = filename;
+        if (left_status.empty()) left_status = "[No Name]";
+        if (dirty) left_status += " [modified]";
+        
+        // Show correct column number
+        std::string right_status = "Ln " + std::to_string(cursor_row + 1) + 
+                                   ", Col " + std::to_string(cursor_col + 1);
+        
+        int left_width = left_status.length();
+        int right_width = right_status.length();
+        int padding = term_cols - left_width - right_width - 2;
+        if (padding < 1) padding = 1;
+        
+        std::string status = "\x1b[7m" + left_status + std::string(padding, ' ') + right_status + "\x1b[0m";
+        
+        if (status.length() > static_cast<size_t>(term_cols)) {
+            status = status.substr(0, term_cols);
+        }
+        
+        write(STDOUT_FILENO, status.c_str(), status.length());
+        
+        if (status.length() < static_cast<size_t>(term_cols)) {
+            std::string remaining(term_cols - status.length(), ' ');
+            write(STDOUT_FILENO, remaining.c_str(), remaining.length());
+        }
+        
+        write(STDOUT_FILENO, "\x1b[0m", 4);
+    }
+
+    void Editor::show_status_message(const std::string& message) {
+        terminal::clear_line();
+        write(STDOUT_FILENO, message.c_str(), message.length());
+        write(STDOUT_FILENO, "\x1b[0m", 4);
     }
 
     Key Editor::read_key() {
@@ -260,113 +397,20 @@ namespace editor {
         return static_cast<Key>(c);
     }
 
-    void Editor::render_rows(int term_rows, int term_cols) {
-        int max_rows = std::min(term_rows, static_cast<int>(rows.size()));
-        
-        int max_line_num = rows.size();
-        int line_num_width = std::to_string(max_line_num).length();
-        if (line_num_width < 3) line_num_width = 3; // Minimum width
-        
-        for (int i = 0; i < max_rows; i++) {
-            terminal::clear_line();
-            
-            // Show line numbers (dim/gray)
-            std::string line_num = std::to_string(i + 1);
-            std::string padding(line_num_width - line_num.length(), ' ');
-            std::string line_display = "\x1b[2m" + padding + line_num + " \x1b[0m";
-            write(STDOUT_FILENO, line_display.c_str(), line_display.length());
-            
-            const auto& row = rows[i];
-            
-            // Truncate line if too long
-            int display_len = std::min(static_cast<int>(row.chars.length()), term_cols - line_num_width - 2);
-            if (display_len > 0) {
-                write(STDOUT_FILENO, row.chars.c_str(), display_len);
-            }
-            
-            if (i < max_rows - 1 || rows.size() > static_cast<size_t>(term_rows)) {
-                write(STDOUT_FILENO, "\r\n", 2);
-            }
-        }
-        
-        for (int i = rows.size(); i < term_rows; i++) {
-            terminal::clear_line();
-            if (i < term_rows - 1) {
-                write(STDOUT_FILENO, "\r\n", 2);
-            }
-        }
-    }
-
-    void Editor::move_cursor() {
-        int max_line_num = rows.size();
-        int line_num_width = std::to_string(max_line_num).length();
-        if (line_num_width < 3) line_num_width = 3;
-        int total_width = line_num_width + 1;
-        
-        char buf[32];
-        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_row + 1, cursor_col + total_width);
-        write(STDOUT_FILENO, buf, strlen(buf));
-    }
-
-    void Editor::show_status_bar(int term_cols) {
-        // Reset colors first to ensure clean status bar
-        write(STDOUT_FILENO, "\x1b[0m", 4);
-        terminal::clear_line();
-        
-        std::string left_status = filename;
-        if (left_status.empty()) left_status = "[No Name]";
-        if (dirty) left_status += " [modified]";
-        
-        std::string right_status = "Ln " + std::to_string(cursor_row + 1) + 
-                                   ", Col " + std::to_string(cursor_col + 1);
-        
-        int left_width = left_status.length();
-        int right_width = right_status.length();
-        int padding = term_cols - left_width - right_width - 2; // -2 for safety
-        if (padding < 1) padding = 1;
-        
-        // Build status bar with inverted colors
-        std::string status = "\x1b[7m" + left_status + std::string(padding, ' ') + right_status + "\x1b[0m";
-        
-        if (status.length() > static_cast<size_t>(term_cols)) {
-            status = status.substr(0, term_cols);
-        }
-        
-        write(STDOUT_FILENO, status.c_str(), status.length());
-        
-        if (status.length() < static_cast<size_t>(term_cols)) {
-            std::string remaining(term_cols - status.length(), ' ');
-            write(STDOUT_FILENO, remaining.c_str(), remaining.length());
-        }
-        
-        // Ensure colors are reset after status bar
-        write(STDOUT_FILENO, "\x1b[0m", 4);
-    }
-
-    void Editor::show_status_message(const std::string& message) {
-        terminal::clear_line();
-        write(STDOUT_FILENO, message.c_str(), message.length());
-        write(STDOUT_FILENO, "\x1b[0m", 4); // Reset colors
-    }
-
     void Editor::refresh_screen() {
         terminal::hide_cursor();
         terminal::clear_screen();
         terminal::move_cursor_to_home();
-        
-        // Reset colors at start
         write(STDOUT_FILENO, "\x1b[0m", 4);
         
         auto [term_rows, term_cols] = terminal::get_window_size();
-        render_rows(term_rows - 1, term_cols);
+        render_rows(term_rows, term_cols);
         
         terminal::move_cursor_to(term_rows - 1, 0);
         show_status_bar(term_cols);
         
         move_cursor();
         terminal::show_cursor();
-        
-        // Final color reset
         write(STDOUT_FILENO, "\x1b[0m", 4);
     }
 
@@ -439,6 +483,7 @@ namespace editor {
                 clamp_cursor();
             }
         }
+        scroll_cursor();
     }
 
     void Editor::shutdown() {
