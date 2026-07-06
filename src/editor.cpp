@@ -260,6 +260,7 @@ namespace editor {
             switch (c) {
                 case 24: return Key::CTRL_X;  // Ctrl+X - Quit
                 case 19: return Key::CTRL_S;  // Ctrl+S - Save
+                case 15: return Key::CTRL_O;  // Ctrl+O - Open
                 case 22: return Key::CTRL_V;  // Ctrl+V - Paste
                 default: return static_cast<Key>(c);
             }
@@ -377,6 +378,11 @@ namespace editor {
                 
             case Key::CTRL_S:
                 save_file();
+                break;
+                
+            case Key::CTRL_O:
+                // TODO: Open file dialog
+                show_status_message("Open file: Not implemented yet");
                 break;
                 
             case Key::CTRL_V:
