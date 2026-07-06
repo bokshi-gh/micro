@@ -1,5 +1,4 @@
 #include "terminal.hpp"
-#include "config.hpp"
 #include <iostream>
 #include <cstring>
 #include <unistd.h>
