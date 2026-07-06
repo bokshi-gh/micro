@@ -4,19 +4,16 @@
 #define VERSION "0.0.1"
 #define DESCRIPTION "a terminal-based text editor"
 
-#define shutdown_editor() cleanup_terminal()
-
 #define CTRL_KEY(k) ((k) & 0x1f)
-
-#define _POSIX_C_SOURCE 200809L
 
 #include "errors.h"
 #include "terminal.h"
 
-#include <unistd.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
+#include <string>
+#include <vector>
+
+using std::string;
+using std::vector;
 
 typedef enum {
   TAB = '\t',
