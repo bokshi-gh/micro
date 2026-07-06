@@ -67,6 +67,12 @@ namespace terminal {
         write(STDOUT_FILENO, "\x1b[H", 3);
     }
 
+    void move_cursor_to(int row, int col) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", row + 1, col + 1);
+        write(STDOUT_FILENO, buf, strlen(buf));
+    }
+
     void hide_cursor() {
         write(STDOUT_FILENO, "\x1b[?25l", 6);
     }
