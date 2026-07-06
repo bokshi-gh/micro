@@ -1,23 +1,21 @@
-#include "cli.h"
-#include "terminal.h"
-#include "editor.h"
+#include "editor.hpp"
+#include "cli.hpp"
 
-int main(int argc, char *argv[]) {
-  handle_cli(argc, argv);
-
-  enable_raw_mode();
-  switch_to_alternate_screen_buffer();
-
-  // IMPORTANT: atexit() executes functions in reverse order (LIFO)
-  atexit(disable_raw_mode);
-  atexit(return_to_main_screen_buffer);
-
-  init_editor(argv[1]);
-
-  while (1) { 
-    refresh_screen();
-    process_keypress();
-  }
-
-  return 0;
+int main(int argc, char* argv[]) {
+    auto options = cli::parse_arguments(argc, argv);
+    
+    if (options.show_help) {
+        cli::show_help();
+        return 0;
+    }
+    
+    if (options.show_version) {
+        cli::show_version();
+        return 0;
+    }
+    
+    editor::Editor editor;
+    editor.run(options.filename);
+    
+    return 0;
 }
