@@ -260,7 +260,6 @@ namespace editor {
             switch (c) {
                 case 24: return Key::CTRL_X;  // Ctrl+X - Quit
                 case 19: return Key::CTRL_S;  // Ctrl+S - Save
-                case 15: return Key::CTRL_O;  // Ctrl+O - Open
                 case 22: return Key::CTRL_V;  // Ctrl+V - Paste
                 default: return static_cast<Key>(c);
             }
