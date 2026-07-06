@@ -313,7 +313,7 @@ namespace editor {
         render_rows(term_rows - 1, term_cols);  // Reserve one line for status
         
         // Show status message at bottom
-        terminal::move_cursor_to(term_rows, 0);
+        terminal::move_cursor_to(term_rows - 1, 0);  // Changed from term_rows to term_rows - 1
         terminal::clear_line();
         std::string status = filename + (dirty ? " [modified]" : "");
         if (status.empty()) status = "[No Name]";
