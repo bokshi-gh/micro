@@ -14,6 +14,7 @@ OBJECTS = $(SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
 DEPENDS = $(OBJECTS:.o=.d)
 
 PREFIX = /usr/local
+BINDIR = $(DESTDIR)$(PREFIX)/bin
 
 .PHONY: all clean install uninstall debug release
 
@@ -42,10 +43,14 @@ clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
 
 install: $(BIN_DIR)/$(TARGET)
-	install -Dm755 $(BIN_DIR)/$(TARGET) $(DESTDIR)$(PREFIX)/bin/$(TARGET)
+	@echo "Installing $(TARGET) to $(BINDIR)"
+	install -Dm755 $(BIN_DIR)/$(TARGET) $(BINDIR)/$(TARGET)
+	@echo "Installation complete!"
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET)
+	@echo "Removing $(TARGET) from $(BINDIR)"
+	rm -f $(BINDIR)/$(TARGET)
+	@echo "Uninstallation complete!"
 
 debug: CXXFLAGS += -g -DDEBUG -O0
 debug: clean all
@@ -54,7 +59,7 @@ release: CXXFLAGS += -O3 -DNDEBUG
 release: clean all
 
 run: all
-	./$(BIN_DIR)/$(TARGET) test.txt
+	./$(BIN_DIR)/$(TARGET)
 
 test: all
 	@echo "Creating test file..."
@@ -63,3 +68,16 @@ test: all
 	@echo "Line 3 with some content" >> test.txt
 	./$(BIN_DIR)/$(TARGET) test.txt
 	@rm -f test.txt
+
+# Help target
+help:
+	@echo "Available targets:"
+	@echo "  all       - Build the editor"
+	@echo "  clean     - Remove build artifacts"
+	@echo "  install   - Install system-wide"
+	@echo "  uninstall - Remove system-wide installation"
+	@echo "  debug     - Build with debug symbols"
+	@echo "  release   - Build with optimizations"
+	@echo "  run       - Build and run the editor"
+	@echo "  test      - Build and run with a test file"
+	@echo "  help      - Show this help message"
