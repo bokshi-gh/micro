@@ -1,8 +1,6 @@
 #include "errors.h"
 
-void die(const char *mes) {
-  cleanup_terminal();
-
-  perror(mes);
+void die(const char *message) {
+  perror(message);
   exit(1);
 }
