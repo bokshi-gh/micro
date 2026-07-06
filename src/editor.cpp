@@ -49,7 +49,6 @@ namespace editor {
         
         std::string line;
         while (std::getline(file, line)) {
-            // Remove trailing \r for Windows compatibility
             if (!line.empty() && line.back() == '\r') {
                 line.pop_back();
             }
@@ -82,8 +81,6 @@ namespace editor {
     }
 
     bool Editor::confirm_unsaved_changes() {
-        // For now, just save automatically
-        // TODO: Implement proper confirmation dialog
         return true;
     }
 
@@ -127,7 +124,6 @@ namespace editor {
             current.chars.erase(cursor_col, 1);
             dirty = true;
         } else if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
-            // Merge with next row
             auto& next_row = rows[cursor_row + 1];
             current.chars += next_row.chars;
             delete_row(cursor_row + 1);
@@ -142,7 +138,6 @@ namespace editor {
             cursor_col--;
             dirty = true;
         } else if (cursor_row > 0) {
-            // Merge with previous row
             cursor_row--;
             cursor_col = get_row_length(cursor_row);
             auto& current = get_current_row();
@@ -159,7 +154,6 @@ namespace editor {
             return;
         }
         
-        // Insert clipboard content at cursor position
         for (char c : clipboard) {
             if (c == '\n') {
                 split_row_at_cursor();
@@ -171,8 +165,6 @@ namespace editor {
     }
 
     void Editor::copy_selection() {
-        // For now, copy current line
-        // TODO: Implement proper selection handling
         if (!rows.empty()) {
             clipboard = get_current_row().chars;
             show_status_message("Copied line to clipboard");
@@ -255,13 +247,12 @@ namespace editor {
             return Key::ESC;
         }
         
-        // Handle Ctrl combinations
         if (c >= 0 && c < 32) {
             switch (c) {
-                case 24: return Key::CTRL_X;  // Ctrl+X - Quit
-                case 19: return Key::CTRL_S;  // Ctrl+S - Save
-                case 15: return Key::CTRL_O;  // Ctrl+O - Open
-                case 22: return Key::CTRL_V;  // Ctrl+V - Paste
+                case 24: return Key::CTRL_X;
+                case 19: return Key::CTRL_S;
+                case 15: return Key::CTRL_O;
+                case 22: return Key::CTRL_V;
                 default: return static_cast<Key>(c);
             }
         }
@@ -272,29 +263,32 @@ namespace editor {
     void Editor::render_rows(int term_rows, int term_cols) {
         int max_rows = std::min(term_rows, static_cast<int>(rows.size()));
         
+        int max_line_num = rows.size();
+        int line_num_width = std::to_string(max_line_num).length();
+        if (line_num_width < 3) line_num_width = 3; // Minimum width
+        
         for (int i = 0; i < max_rows; i++) {
             terminal::clear_line();
             
-            // Show line numbers
+            // Show line numbers (dim/gray)
             std::string line_num = std::to_string(i + 1);
-            std::string padding = std::string(6 - line_num.length(), ' ');
-            write(STDOUT_FILENO, padding.c_str(), padding.length());
-            write(STDOUT_FILENO, line_num.c_str(), line_num.length());
-            write(STDOUT_FILENO, " │ ", 3);
+            std::string padding(line_num_width - line_num.length(), ' ');
+            std::string line_display = "\x1b[2m" + padding + line_num + " \x1b[0m";
+            write(STDOUT_FILENO, line_display.c_str(), line_display.length());
             
             const auto& row = rows[i];
             
-            // Truncate line if too long (accounting for line numbers)
-            int line_num_width = 9; // 6 padding + number + " │ "
-            int display_len = std::min(static_cast<int>(row.chars.length()), term_cols - line_num_width - 1);
-            write(STDOUT_FILENO, row.chars.c_str(), display_len);
+            // Truncate line if too long
+            int display_len = std::min(static_cast<int>(row.chars.length()), term_cols - line_num_width - 2);
+            if (display_len > 0) {
+                write(STDOUT_FILENO, row.chars.c_str(), display_len);
+            }
             
             if (i < max_rows - 1 || rows.size() > static_cast<size_t>(term_rows)) {
                 write(STDOUT_FILENO, "\r\n", 2);
             }
         }
         
-        // Clear remaining lines
         for (int i = rows.size(); i < term_rows; i++) {
             terminal::clear_line();
             if (i < term_rows - 1) {
@@ -304,52 +298,55 @@ namespace editor {
     }
 
     void Editor::move_cursor() {
-        // Move cursor to position (accounting for line numbers)
-        int col_offset = 9; // 6 padding + number + " │ "
+        int max_line_num = rows.size();
+        int line_num_width = std::to_string(max_line_num).length();
+        if (line_num_width < 3) line_num_width = 3;
+        int total_width = line_num_width + 1;
+        
         char buf[32];
-        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_row + 1, cursor_col + col_offset);
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_row + 1, cursor_col + total_width);
         write(STDOUT_FILENO, buf, strlen(buf));
     }
 
     void Editor::show_status_bar(int term_cols) {
+        // Reset colors first to ensure clean status bar
+        write(STDOUT_FILENO, "\x1b[0m", 4);
         terminal::clear_line();
         
-        // Left side: filename and modified status
         std::string left_status = filename;
         if (left_status.empty()) left_status = "[No Name]";
         if (dirty) left_status += " [modified]";
         
-        // Right side: cursor position (line:col)
         std::string right_status = "Ln " + std::to_string(cursor_row + 1) + 
                                    ", Col " + std::to_string(cursor_col + 1);
         
-        // Calculate padding
         int left_width = left_status.length();
         int right_width = right_status.length();
-        int padding = term_cols - left_width - right_width;
+        int padding = term_cols - left_width - right_width - 2; // -2 for safety
         if (padding < 1) padding = 1;
         
-        // Build status bar with inverted colors (white text on black background)
+        // Build status bar with inverted colors
         std::string status = "\x1b[7m" + left_status + std::string(padding, ' ') + right_status + "\x1b[0m";
         
-        // Truncate if too long
         if (status.length() > static_cast<size_t>(term_cols)) {
             status = status.substr(0, term_cols);
         }
         
         write(STDOUT_FILENO, status.c_str(), status.length());
         
-        // Fill remaining space if needed
         if (status.length() < static_cast<size_t>(term_cols)) {
             std::string remaining(term_cols - status.length(), ' ');
             write(STDOUT_FILENO, remaining.c_str(), remaining.length());
         }
+        
+        // Ensure colors are reset after status bar
+        write(STDOUT_FILENO, "\x1b[0m", 4);
     }
 
     void Editor::show_status_message(const std::string& message) {
-        terminal::move_cursor_to_home();
         terminal::clear_line();
         write(STDOUT_FILENO, message.c_str(), message.length());
+        write(STDOUT_FILENO, "\x1b[0m", 4); // Reset colors
     }
 
     void Editor::refresh_screen() {
@@ -357,15 +354,20 @@ namespace editor {
         terminal::clear_screen();
         terminal::move_cursor_to_home();
         
-        auto [term_rows, term_cols] = terminal::get_window_size();
-        render_rows(term_rows - 1, term_cols);  // Reserve one line for status
+        // Reset colors at start
+        write(STDOUT_FILENO, "\x1b[0m", 4);
         
-        // Show status bar at bottom
+        auto [term_rows, term_cols] = terminal::get_window_size();
+        render_rows(term_rows - 1, term_cols);
+        
         terminal::move_cursor_to(term_rows - 1, 0);
         show_status_bar(term_cols);
         
         move_cursor();
         terminal::show_cursor();
+        
+        // Final color reset
+        write(STDOUT_FILENO, "\x1b[0m", 4);
     }
 
     void Editor::process_keypress() {
@@ -381,7 +383,6 @@ namespace editor {
                 break;
                 
             case Key::CTRL_O:
-                // TODO: Open file dialog
                 show_status_message("Open file: Not implemented yet");
                 break;
                 
@@ -428,7 +429,6 @@ namespace editor {
                 break;
         }
         
-        // Ensure cursor stays within bounds
         if (rows.empty()) {
             cursor_row = 0;
             cursor_col = 0;
@@ -443,8 +443,6 @@ namespace editor {
 
     void Editor::shutdown() {
         if (dirty) {
-            // For now, just warn and quit
-            // TODO: Add confirmation dialog
             if (confirm_unsaved_changes()) {
                 save_file();
                 running = false;
