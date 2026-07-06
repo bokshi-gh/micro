@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REPO_URL="https://github.com/bokshi-gh/micro.git"
+REPO_URL="https://github.com/bokshi-gh/text-editor.git"
 TARGET="micro"
 
 TMP_DIR=$(mktemp -d)
