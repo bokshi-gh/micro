@@ -1,24 +1,12 @@
 #include "editor.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-
 static Editor edtr;
 
 Editor *get_editor() {
   return &edtr;
 }
 
-static int line_len(int y) {
-  if (y < 0 || y >= edtr.row_count || !edtr.rows[y])
-    return 0;
-  return strlen(edtr.rows[y]);
-}
-
-void init_editor() {
+void init_editor(string) {
   edtr.filename = NULL;
   edtr.rows = NULL;
   edtr.row_count = 0;
