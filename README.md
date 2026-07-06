@@ -1,21 +1,30 @@
 # Text Editor (micro)
 
-A terminal-based text editor.
+A lightweight, terminal-based text editor written in modern C++.
 
-## Installation
+## Quick Install
 
-- Install via the installer script:
+### Prerequisites
 
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/bokshi-gh/micro/main/scripts/install.sh | sudo bash
-  ```
+- Linux or macOS (Windows WSL2 also supported)
+- Git - For cloning the repository
+- GCC/G++ (version 7 or higher) - For compilation
+- Make - Build automation
 
-  > Requirements: [cURL](https://curl.se/), [GNU Make](https://www.gnu.org/software/make/), and [GCC](https://gcc.gnu.org/)
-
-  > You can check the source code of the installer script [here](https://raw.githubusercontent.com/bokshi-gh/micro/main/scripts/install.sh).
-
-## Uninstall
-
+### One-liner Installation
 ```bash
-rm -rf /usr/local/bin/micro
+curl -sSL https://raw.githubusercontent.com/bokshi-gh/text-editor/main/install.sh | bash
+```
+
+### Manual Installation
+```bash
+git clone https://github.com/bokshi-gh/text-editor.git
+cd text-editor
+make
+sudo make install
+```
+
+### Uninstall
+```bash
+curl -sSL https://raw.githubusercontent.com/bokshi-gh/text-editor/main/uninstall.sh | bash
 ```
