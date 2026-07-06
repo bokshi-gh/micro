@@ -11,7 +11,6 @@ TARGET = micro
 
 SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
 OBJECTS = $(SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
-DEPENDS = $(OBJECTS:.o=.d)
 
 PREFIX = /usr/local
 BINDIR = $(DESTDIR)$(PREFIX)/bin
@@ -24,20 +23,13 @@ all: $(BIN_DIR)/$(TARGET)
 $(BUILD_DIR) $(BIN_DIR):
 	mkdir -p $@
 
-# Build dependencies
-$(BUILD_DIR)/%.d: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
-	@$(CXX) $(CXXFLAGS) -MM -MT '$(@:.d=.o)' $< > $@
-
 # Compile
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(BUILD_DIR)/%.d | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Link
 $(BIN_DIR)/$(TARGET): $(OBJECTS) | $(BIN_DIR)
 	$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
-
-# Include dependencies
--include $(DEPENDS)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BIN_DIR)
@@ -69,7 +61,6 @@ test: all
 	./$(BIN_DIR)/$(TARGET) test.txt
 	@rm -f test.txt
 
-# Help target
 help:
 	@echo "Available targets:"
 	@echo "  all       - Build the editor"
