@@ -17,6 +17,7 @@ namespace terminal {
     void clear_line();
     std::pair<int, int> get_window_size();
     
+    // RAII wrapper for terminal mode
     class TerminalGuard {
     public:
         TerminalGuard();
