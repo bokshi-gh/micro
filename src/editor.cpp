@@ -6,6 +6,8 @@
 #include <cstring>
 #include <unistd.h>
 #include <errno.h>
+#include <sstream>
+#include <iomanip>
 
 namespace editor {
     Editor::Editor() {
@@ -272,10 +274,19 @@ namespace editor {
         
         for (int i = 0; i < max_rows; i++) {
             terminal::clear_line();
+            
+            // Show line numbers
+            std::string line_num = std::to_string(i + 1);
+            std::string padding = std::string(6 - line_num.length(), ' ');
+            write(STDOUT_FILENO, padding.c_str(), padding.length());
+            write(STDOUT_FILENO, line_num.c_str(), line_num.length());
+            write(STDOUT_FILENO, " │ ", 3);
+            
             const auto& row = rows[i];
             
-            // Truncate line if too long
-            int display_len = std::min(static_cast<int>(row.chars.length()), term_cols - 1);
+            // Truncate line if too long (accounting for line numbers)
+            int line_num_width = 9; // 6 padding + number + " │ "
+            int display_len = std::min(static_cast<int>(row.chars.length()), term_cols - line_num_width - 1);
             write(STDOUT_FILENO, row.chars.c_str(), display_len);
             
             if (i < max_rows - 1 || rows.size() > static_cast<size_t>(term_rows)) {
@@ -293,9 +304,46 @@ namespace editor {
     }
 
     void Editor::move_cursor() {
+        // Move cursor to position (accounting for line numbers)
+        int col_offset = 9; // 6 padding + number + " │ "
         char buf[32];
-        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_row + 1, cursor_col + 1);
+        snprintf(buf, sizeof(buf), "\x1b[%d;%dH", cursor_row + 1, cursor_col + col_offset);
         write(STDOUT_FILENO, buf, strlen(buf));
+    }
+
+    void Editor::show_status_bar(int term_cols) {
+        terminal::clear_line();
+        
+        // Left side: filename and modified status
+        std::string left_status = filename;
+        if (left_status.empty()) left_status = "[No Name]";
+        if (dirty) left_status += " [modified]";
+        
+        // Right side: cursor position (line:col)
+        std::string right_status = "Ln " + std::to_string(cursor_row + 1) + 
+                                   ", Col " + std::to_string(cursor_col + 1);
+        
+        // Calculate padding
+        int left_width = left_status.length();
+        int right_width = right_status.length();
+        int padding = term_cols - left_width - right_width;
+        if (padding < 1) padding = 1;
+        
+        // Build status bar with inverted colors (white text on black background)
+        std::string status = "\x1b[7m" + left_status + std::string(padding, ' ') + right_status + "\x1b[0m";
+        
+        // Truncate if too long
+        if (status.length() > static_cast<size_t>(term_cols)) {
+            status = status.substr(0, term_cols);
+        }
+        
+        write(STDOUT_FILENO, status.c_str(), status.length());
+        
+        // Fill remaining space if needed
+        if (status.length() < static_cast<size_t>(term_cols)) {
+            std::string remaining(term_cols - status.length(), ' ');
+            write(STDOUT_FILENO, remaining.c_str(), remaining.length());
+        }
     }
 
     void Editor::show_status_message(const std::string& message) {
@@ -312,12 +360,9 @@ namespace editor {
         auto [term_rows, term_cols] = terminal::get_window_size();
         render_rows(term_rows - 1, term_cols);  // Reserve one line for status
         
-        // Show status message at bottom
-        terminal::move_cursor_to(term_rows - 1, 0);  // Changed from term_rows to term_rows - 1
-        terminal::clear_line();
-        std::string status = filename + (dirty ? " [modified]" : "");
-        if (status.empty()) status = "[No Name]";
-        write(STDOUT_FILENO, status.c_str(), status.length());
+        // Show status bar at bottom
+        terminal::move_cursor_to(term_rows - 1, 0);
+        show_status_bar(term_cols);
         
         move_cursor();
         terminal::show_cursor();
@@ -333,11 +378,6 @@ namespace editor {
                 
             case Key::CTRL_S:
                 save_file();
-                break;
-                
-            case Key::CTRL_O:
-                // TODO: Open file dialog
-                show_status_message("Open file: Not implemented yet");
                 break;
                 
             case Key::CTRL_V:
