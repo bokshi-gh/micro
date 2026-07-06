@@ -28,7 +28,7 @@ namespace editor {
     }
 
     int Editor::get_row_length(int row) const {
-        if (row < 0 || row >= rows.size()) return 0;
+        if (row < 0 || static_cast<size_t>(row) >= rows.size()) return 0;
         return rows[row].chars.length();
     }
 
@@ -40,7 +40,7 @@ namespace editor {
     }
 
     void Editor::delete_row(int at) {
-        if (at < 0 || at >= rows.size()) return;
+        if (at < 0 || static_cast<size_t>(at) >= rows.size()) return;
         rows.erase(rows.begin() + at);
         dirty = true;
     }
@@ -120,10 +120,10 @@ namespace editor {
 
     void Editor::delete_char() {
         auto& current = get_current_row();
-        if (cursor_col < current.chars.length()) {
+        if (static_cast<size_t>(cursor_col) < current.chars.length()) {
             current.chars.erase(cursor_col, 1);
             dirty = true;
-        } else if (cursor_row < rows.size() - 1) {
+        } else if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
             // Merge with next row
             auto& next_row = rows[cursor_row + 1];
             current.chars += next_row.chars;
@@ -158,7 +158,7 @@ namespace editor {
     }
 
     void Editor::move_cursor_down() {
-        if (cursor_row < rows.size() - 1) {
+        if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
             cursor_row++;
             clamp_cursor();
         }
@@ -177,7 +177,7 @@ namespace editor {
         int len = get_row_length(cursor_row);
         if (cursor_col < len) {
             cursor_col++;
-        } else if (cursor_row < rows.size() - 1) {
+        } else if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
             cursor_row++;
             cursor_col = 0;
         }
@@ -250,7 +250,7 @@ namespace editor {
             int display_len = std::min(static_cast<int>(row.chars.length()), term_cols - 1);
             write(STDOUT_FILENO, row.chars.c_str(), display_len);
             
-            if (i < max_rows - 1 || rows.size() > term_rows) {
+            if (i < max_rows - 1 || rows.size() > static_cast<size_t>(term_rows)) {
                 write(STDOUT_FILENO, "\r\n", 2);
             }
         }
@@ -343,7 +343,7 @@ namespace editor {
             cursor_col = 0;
         } else {
             clamp_cursor();
-            if (cursor_row >= rows.size()) {
+            if (static_cast<size_t>(cursor_row) >= rows.size()) {
                 cursor_row = rows.size() - 1;
                 clamp_cursor();
             }
