@@ -20,6 +20,7 @@ namespace editor {
         ESC = 27,
         CTRL_X = 24,   // Ctrl+X - Quit
         CTRL_S = 19,   // Ctrl+S - Save
+        CTRL_O = 15,   // Ctrl+O - Open file
         CTRL_V = 22,   // Ctrl+V - Paste clipboard
     };
 
