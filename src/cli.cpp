@@ -27,8 +27,6 @@ namespace cli {
                config::color::YELLOW, config::color::RESET);
         printf("  %sCtrl-S%s              Save file\n", 
                config::color::YELLOW, config::color::RESET);
-        printf("  %sCtrl-O%s              Open file\n", 
-               config::color::YELLOW, config::color::RESET);
         printf("  %sCtrl-V%s              Paste clipboard content\n", 
                config::color::YELLOW, config::color::RESET);
         printf("  %sArrow Keys%s          Navigate\n", 
