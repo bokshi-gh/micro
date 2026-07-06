@@ -1,48 +1,90 @@
-#include "cli.h"
+#include "terminal.hpp"
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <errno.h>
 
-void show_no_input() {
-  fprintf(stderr, "%s: no input file provided\n", TARGET);
-  fprintf(stderr, "Try %s'%s --help'%s for more information.\n", ANSI_GREEN, TARGET, ANSI_RESET);
-}
+namespace terminal {
+    static struct termios orig_termios;
+    static bool raw_mode_enabled = false;
 
-void show_help() {
-  printf("%s - %s\n\n", TARGET, DESCRIPTION);
-
-  printf("Usage: %s [OPTIONS | FILE]\n\n", TARGET);
-
-  printf("Options:\n");
-  printf(" %s-h%s, %s--help%s \t Show help\n", ANSI_YELLOW, ANSI_RESET, ANSI_YELLOW, ANSI_RESET);
-  printf(" %s-v%s, %s--version%s \t Show version\n", ANSI_YELLOW, ANSI_RESET, ANSI_YELLOW, ANSI_RESET);
-
-
-  printf("Keybindings:\n");
-  printf(" %sCtrl-S%s \t Save file\n", ANSI_YELLOW, ANSI_RESET);
-  printf(" %sCtrl-X%s \t Quit editor\n", ANSI_YELLOW, ANSI_RESET);
-}
-
-void show_version() { printf("%s %s\n", TARGET, VERSION); }
-
-void show_unknown(const char *arg) {
-  fprintf(stderr, "%s: unknown option '%s'\n", TARGET, arg);
-  fprintf(stderr, "Try %s'%s --help'%s for more information.\n", ANSI_GREEN, TARGET, ANSI_RESET);
-}
-
-void handle_cli(int argc, char *argv[]) {
-  if (argc == 1) {
-    show_no_input();
-    exit(1);
-  } else if (argc == 2) {
-    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-      show_help();
-    } else  if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
-      show_version();
-    } else {
-      return;
+    std::pair<int, int> get_window_size() {
+        struct winsize ws;
+        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+            return {config::DEFAULT_ROWS, config::DEFAULT_COLS};
+        }
+        return {ws.ws_row, ws.ws_col};
     }
-  } else {
-    show_unknown(argv[1]);
-    exit(1);
-  }
 
-  exit(0);
+    int enable_raw_mode() {
+        if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) {
+            std::cerr << "Error: tcgetattr failed: " << strerror(errno) << std::endl;
+            return -1;
+        }
+        
+        struct termios raw = orig_termios;
+        raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+        raw.c_oflag &= ~(OPOST);
+        raw.c_cflag |= (CS8);
+        raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+        raw.c_cc[VMIN] = 0;
+        raw.c_cc[VTIME] = 1;
+
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
+            std::cerr << "Error: tcsetattr failed: " << strerror(errno) << std::endl;
+            return -1;
+        }
+        
+        raw_mode_enabled = true;
+        return 0;
+    }
+
+    int disable_raw_mode() {
+        if (!raw_mode_enabled) return 0;
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1) {
+            std::cerr << "Error: tcsetattr failed: " << strerror(errno) << std::endl;
+            return -1;
+        }
+        raw_mode_enabled = false;
+        return 0;
+    }
+
+    void switch_to_alternate_screen_buffer() {
+        write(STDOUT_FILENO, "\x1b[?1049h", 8);
+    }
+
+    void return_to_main_screen_buffer() {
+        write(STDOUT_FILENO, "\x1b[?1049l", 8);
+    }
+
+    void clear_screen() {
+        write(STDOUT_FILENO, "\x1b[2J", 4);
+    }
+
+    void move_cursor_to_home() {
+        write(STDOUT_FILENO, "\x1b[H", 3);
+    }
+
+    void hide_cursor() {
+        write(STDOUT_FILENO, "\x1b[?25l", 6);
+    }
+
+    void show_cursor() {
+        write(STDOUT_FILENO, "\x1b[?25h", 6);
+    }
+
+    void clear_line() {
+        write(STDOUT_FILENO, "\x1b[K", 3);
+    }
+
+    TerminalGuard::TerminalGuard() {
+        enable_raw_mode();
+        switch_to_alternate_screen_buffer();
+    }
+
+    TerminalGuard::~TerminalGuard() {
+        return_to_main_screen_buffer();
+        disable_raw_mode();
+    }
 }
