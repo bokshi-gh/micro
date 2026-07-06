@@ -1,5 +1,4 @@
-#ifndef TERMINAL_H
-#define TERMINAL_H
+#pragma once
 
 #define ANSI_RED "\033[31m"
 #define ANSI_GREEN "\033[32m"
@@ -27,5 +26,3 @@ void clear_entire_screen();
 void move_cursor_to_home();
 
 void clear_entire_screen_and_move_cursor_to_home();
-
-#endif

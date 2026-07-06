@@ -1,5 +1,4 @@
-#ifndef ERRORS_H
-#define ERRORS_H
+#pragma once
 
 #include "terminal.h"
 
@@ -7,5 +6,3 @@
 #include <stdlib.h>
 
 void die(const char *mes);
-
-#endif

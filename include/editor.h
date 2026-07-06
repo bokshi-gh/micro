@@ -1,5 +1,5 @@
-#ifndef EDITOR_H
-#define EDITOR_H
+#pragma once
+
 
 #define TARGET "micro"
 #define VERSION "0.0.1"
@@ -46,5 +46,3 @@ void editor_open_file();
 
 void refresh_screen();
 void process_keypress();
-
-#endif
