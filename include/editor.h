@@ -36,8 +36,9 @@ typedef struct {
   int cx;
 } Editor;
 
-void init_editor();
+
 void editor_open_file();
+void init_editor();
 
 void refresh_screen();
 void process_keypress();
