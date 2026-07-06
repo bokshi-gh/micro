@@ -6,14 +6,6 @@ Editor *get_editor() {
   return &edtr;
 }
 
-void init_editor(string) {
-  edtr.filename = NULL;
-  edtr.rows = NULL;
-  edtr.row_count = 0;
-  edtr.cy = 0;
-  edtr.cx = 0;
-}
-
 void editor_open_file(const char *filename) {
   edtr.filename = strdup(filename);
 
@@ -41,6 +33,14 @@ void editor_open_file(const char *filename) {
 
   free(line);
   fclose(fp);
+}
+
+void init_editor(string filename) {
+  edtr.filename = NULL;
+  edtr.rows = NULL;
+  edtr.row_count = 0;
+  edtr.cy = 0;
+  edtr.cx = 0;
 }
 
 void editor_free() {
