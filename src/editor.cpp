@@ -12,13 +12,6 @@ namespace editor {
         terminal_guard = std::make_unique<terminal::TerminalGuard>();
     }
 
-    void Editor::die(const std::string& message) {
-        terminal::return_to_main_screen_buffer();
-        terminal::disable_raw_mode();
-        std::cerr << "\n\x1b[31mError:\x1b[0m " << message << std::endl;
-        exit(1);
-    }
-
     auto Editor::get_current_row() -> Row& {
         return rows[cursor_row];
     }
@@ -67,13 +60,14 @@ namespace editor {
 
     void Editor::save_file() {
         if (filename.empty()) {
-            // TODO: Implement file dialog
+            show_status_message("No filename specified");
             return;
         }
         
         std::ofstream file(filename);
         if (!file.is_open()) {
-            die("Failed to save file: " + filename);
+            show_status_message("Failed to save file: " + filename);
+            return;
         }
         
         for (const auto& row : rows) {
@@ -82,6 +76,13 @@ namespace editor {
         
         file.close();
         dirty = false;
+        show_status_message("File saved: " + filename);
+    }
+
+    bool Editor::confirm_unsaved_changes() {
+        // For now, just save automatically
+        // TODO: Implement proper confirmation dialog
+        return true;
     }
 
     void Editor::insert_char(char c) {
@@ -150,6 +151,32 @@ namespace editor {
         }
     }
 
+    void Editor::paste_clipboard() {
+        if (clipboard.empty()) {
+            show_status_message("Clipboard is empty");
+            return;
+        }
+        
+        // Insert clipboard content at cursor position
+        for (char c : clipboard) {
+            if (c == '\n') {
+                split_row_at_cursor();
+            } else {
+                insert_char(c);
+            }
+        }
+        show_status_message("Pasted from clipboard");
+    }
+
+    void Editor::copy_selection() {
+        // For now, copy current line
+        // TODO: Implement proper selection handling
+        if (!rows.empty()) {
+            clipboard = get_current_row().chars;
+            show_status_message("Copied line to clipboard");
+        }
+    }
+
     void Editor::move_cursor_up() {
         if (cursor_row > 0) {
             cursor_row--;
@@ -201,7 +228,7 @@ namespace editor {
         
         while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {
             if (nread == -1 && errno != EAGAIN) {
-                die("read error");
+                return Key::NONE;
             }
         }
         
@@ -229,9 +256,10 @@ namespace editor {
         // Handle Ctrl combinations
         if (c >= 0 && c < 32) {
             switch (c) {
-                case 17: return Key::CTRL_Q;  // Ctrl-Q
-                case 19: return Key::CTRL_S;  // Ctrl-S
-                case 15: return Key::CTRL_O;  // Ctrl-O
+                case 24: return Key::CTRL_X;  // Ctrl+X - Quit
+                case 19: return Key::CTRL_S;  // Ctrl+S - Save
+                case 15: return Key::CTRL_O;  // Ctrl+O - Open
+                case 22: return Key::CTRL_V;  // Ctrl+V - Paste
                 default: return static_cast<Key>(c);
             }
         }
@@ -270,15 +298,28 @@ namespace editor {
         write(STDOUT_FILENO, buf, strlen(buf));
     }
 
+    void Editor::show_status_message(const std::string& message) {
+        terminal::move_cursor_to_home();
+        terminal::clear_line();
+        write(STDOUT_FILENO, message.c_str(), message.length());
+    }
+
     void Editor::refresh_screen() {
         terminal::hide_cursor();
         terminal::clear_screen();
         terminal::move_cursor_to_home();
         
         auto [term_rows, term_cols] = terminal::get_window_size();
-        render_rows(term_rows, term_cols);
-        move_cursor();
+        render_rows(term_rows - 1, term_cols);  // Reserve one line for status
         
+        // Show status message at bottom
+        terminal::move_cursor_to(term_rows, 0);
+        terminal::clear_line();
+        std::string status = filename + (dirty ? " [modified]" : "");
+        if (status.empty()) status = "[No Name]";
+        write(STDOUT_FILENO, status.c_str(), status.length());
+        
+        move_cursor();
         terminal::show_cursor();
     }
 
@@ -286,7 +327,7 @@ namespace editor {
         Key key = read_key();
         
         switch (key) {
-            case Key::CTRL_Q:
+            case Key::CTRL_X:
                 shutdown();
                 break;
                 
@@ -296,6 +337,11 @@ namespace editor {
                 
             case Key::CTRL_O:
                 // TODO: Open file dialog
+                show_status_message("Open file: Not implemented yet");
+                break;
+                
+            case Key::CTRL_V:
+                paste_clipboard();
                 break;
                 
             case Key::ENTER:
@@ -352,11 +398,15 @@ namespace editor {
 
     void Editor::shutdown() {
         if (dirty) {
-            // TODO: Show confirmation dialog
-            std::cout << "\n\x1b[33mWarning:\x1b[0m Unsaved changes!" << std::endl;
-            return;
+            // For now, just warn and quit
+            // TODO: Add confirmation dialog
+            if (confirm_unsaved_changes()) {
+                save_file();
+                running = false;
+            }
+        } else {
+            running = false;
         }
-        running = false;
     }
 
     void Editor::run(const std::string& filename) {
