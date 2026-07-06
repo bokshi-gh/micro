@@ -1,3 +1,11 @@
+# Build directories
+build/
+bin/
+obj/
+dist/
+Debug/
+Release/
+
 # Compiled files
 *.o
 *.obj
@@ -7,14 +15,6 @@
 *.dylib
 *.a
 *.lib
-
-# Build directories
-build/
-bin/
-obj/
-dist/
-Debug/
-Release/
 *.dSYM/
 
 # Executable
@@ -74,3 +74,12 @@ coverage/
 # Profiling
 gmon.out
 *.prof
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Temporary installation files
+install_manifest.txt
