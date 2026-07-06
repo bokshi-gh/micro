@@ -18,9 +18,10 @@ namespace editor {
         ARROW_RIGHT = 1004,
         TAB = 9,
         ESC = 27,
-        CTRL_Q = 17,   // Ctrl+Q
-        CTRL_S = 19,   // Ctrl+S
-        CTRL_O = 15,   // Ctrl+O
+        CTRL_X = 24,   // Ctrl+X - Quit
+        CTRL_S = 19,   // Ctrl+S - Save
+        CTRL_O = 15,   // Ctrl+O - Open file
+        CTRL_V = 22,   // Ctrl+V - Paste clipboard
     };
 
     class Editor {
@@ -36,6 +37,7 @@ namespace editor {
         int cursor_col = 0;
         bool dirty = false;
         bool running = true;
+        std::string clipboard;  // For copy/paste
         std::unique_ptr<terminal::TerminalGuard> terminal_guard;
 
         // Row operations
@@ -51,6 +53,8 @@ namespace editor {
         void split_row_at_cursor();
         void delete_char();
         void backspace();
+        void paste_clipboard();
+        void copy_selection();  // For future selection support
         
         // Navigation
         void move_cursor_up();
@@ -63,10 +67,12 @@ namespace editor {
         // File operations
         void save_file();
         void open_file(const std::string& filename);
+        bool confirm_unsaved_changes();
         
         // Rendering
         void render_rows(int term_rows, int term_cols);
         void move_cursor();
+        void show_status_message(const std::string& message);
         
         // Input
         Key read_key();
@@ -84,6 +90,5 @@ namespace editor {
         void process_keypress();
         void refresh_screen();
         void shutdown();
-        void die(const std::string& message);
     };
 }
