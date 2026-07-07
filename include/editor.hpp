@@ -20,7 +20,6 @@ namespace editor {
         CTRL_X = 24,   // Ctrl+X - Quit
         CTRL_S = 19,   // Ctrl+S - Save
         CTRL_V = 22,   // Ctrl+V - Paste
-        CTRL_C = 3,    // Ctrl+C - Copy
     };
 
     class Editor {
@@ -35,6 +34,7 @@ namespace editor {
         int cursor_col = 0;
         int scroll_row = 0;
         int scroll_col = 0;
+        
         bool dirty = false;
         bool running = true;
         bool waiting_for_quit = false;
@@ -56,9 +56,7 @@ namespace editor {
         void delete_char();
         void backspace();
         void paste_clipboard();
-        void copy_selection();
         void get_system_clipboard();
-        void set_system_clipboard(const std::string& text);
         
         // Navigation
         void move_cursor_up();
@@ -81,7 +79,6 @@ namespace editor {
         void show_status_bar(int term_rows, int term_cols);
         void show_status_message(const std::string& message);
         void draw_row(const Row& row, int row_num, int term_cols);
-        void clear_line();
         
         // Input
         Key read_key();
