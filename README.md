@@ -10,6 +10,7 @@ A lightweight, terminal-based text editor written in modern C++.
 - Git - For cloning the repository
 - GCC/G++ (version 7 or higher) - For compilation
 - Make - Build automation
+- **xclip** - For system clipboard support (Ctrl+C/Ctrl+V)
 
 ### One-liner Installation
 ```bash
