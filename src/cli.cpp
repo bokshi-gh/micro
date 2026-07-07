@@ -9,7 +9,7 @@ namespace cli {
     }
 
     void show_help() {
-        printf("%s %s - %s\n\n", 
+        printf("%s%s - %s\n\n", 
                config::color::BOLD, config::TARGET, config::DESCRIPTION);
         printf("%s", config::color::RESET);
         printf("Usage: %s [OPTIONS] [FILE]\n\n", config::TARGET);
@@ -27,15 +27,6 @@ namespace cli {
                config::color::YELLOW, config::color::RESET);
         printf("  %sCtrl-S%s              Save file\n", 
                config::color::YELLOW, config::color::RESET);
-        printf("  %sCtrl-V%s              Paste from clipboard\n", 
-               config::color::YELLOW, config::color::RESET);
-        printf("  %sArrow Keys%s          Navigate\n", 
-               config::color::YELLOW, config::color::RESET);
-        printf("  %sTab%s                 Insert tab (4 spaces)\n", 
-               config::color::YELLOW, config::color::RESET);
-        printf("\nMouse Selection:\n");
-        printf("  Click and drag to select text (terminal native)\n");
-        printf("  Middle-click to paste from primary selection\n");
     }
 
     void show_version() {
