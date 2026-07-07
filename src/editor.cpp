@@ -50,24 +50,8 @@ namespace editor {
         return size > 0 ? size - 1 : 0;
     }
 
-    void Editor::set_system_clipboard(const std::string& text) {
-        // Escape single quotes for shell
-        std::string escaped = text;
-        size_t pos = 0;
-        while ((pos = escaped.find("'", pos)) != std::string::npos) {
-            escaped.replace(pos, 1, "'\\''");
-            pos += 4;
-        }
-        
-        std::string cmd = "echo -n '" + escaped + "' | xclip -selection clipboard 2>/dev/null";
-        system(cmd.c_str());
-        
-        cmd = "echo -n '" + escaped + "' | xclip -selection primary 2>/dev/null";
-        system(cmd.c_str());
-    }
-
     void Editor::get_system_clipboard() {
-        // Try primary selection first
+        // Try primary selection first (mouse selection)
         FILE* fp = popen("xclip -o -selection primary 2>/dev/null", "r");
         if (!fp) return;
         
@@ -155,14 +139,6 @@ namespace editor {
         status_message = "Saved " + filename + " (" + std::to_string(get_file_size()) + "B)";
     }
 
-    void Editor::copy_selection() {
-        if (rows.empty()) return;
-        
-        clipboard = get_current_row().chars;
-        set_system_clipboard(clipboard);
-        status_message = "Copied line to clipboard";
-    }
-
     void Editor::paste_clipboard() {
         get_system_clipboard();
         
@@ -178,7 +154,7 @@ namespace editor {
                 insert_char(c);
             }
         }
-        status_message = "Pasted from clipboard";
+        status_message = "Pasted from clipboard (" + std::to_string(clipboard.length()) + " chars)";
     }
 
     void Editor::insert_char(char c) {
@@ -329,7 +305,7 @@ namespace editor {
         status_message = "Save changes? (y)es / (n)o / (c)ancel";
         
         while (true) {
-            refresh_screen(); // Show the prompt
+            refresh_screen();
             
             Key key = read_key();
             
@@ -354,11 +330,13 @@ namespace editor {
         int line_num_width = 4;
         int usable_cols = term_cols - line_num_width - 1;
         
+        // Show line number
         std::string line_num = std::to_string(row_num + 1);
         std::string padding(line_num_width - line_num.length(), ' ');
         std::string line_display = "\x1b[2m" + padding + line_num + " \x1b[0m";
         write(STDOUT_FILENO, line_display.c_str(), line_display.length());
         
+        // Display text with horizontal scrolling
         int start = scroll_col;
         int len = row.chars.length();
         
@@ -435,7 +413,7 @@ namespace editor {
             size_str = std::to_string(file_size / (1024 * 1024)) + "MB";
         }
         
-        // FIXED: Show column number correctly with proper formatting
+        // FIXED: Show column number correctly - cursor_col is 0-based, display as 1-based
         std::string right_status = size_str + " | Ln " + std::to_string(cursor_row + 1) + 
                                    ", Col " + std::to_string(cursor_col + 1);
         
@@ -501,7 +479,6 @@ namespace editor {
                 case 24: return Key::CTRL_X;  // Ctrl+X - Quit
                 case 19: return Key::CTRL_S;  // Ctrl+S - Save
                 case 22: return Key::CTRL_V;  // Ctrl+V - Paste
-                case 3:  return Key::CTRL_C;  // Ctrl+C - Copy
                 default: return static_cast<Key>(c);
             }
         }
@@ -545,10 +522,6 @@ namespace editor {
                 
             case Key::CTRL_V:
                 paste_clipboard();
-                break;
-                
-            case Key::CTRL_C:
-                copy_selection();
                 break;
                 
             case Key::ENTER:
