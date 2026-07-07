@@ -9,10 +9,15 @@ namespace cli {
     }
 
     void show_help() {
-        printf("%s%s - %s\n\n", 
-               config::color::BOLD, config::TARGET, config::DESCRIPTION);
-        printf("%s", config::color::RESET);
-        printf("Usage: %s [OPTIONS] [FILE]\n\n", config::TARGET);
+        printf("%s%s - %s%s\n\n", 
+               config::color::BOLD, 
+               config::TARGET, 
+               config::DESCRIPTION,
+               config::color::RESET);
+        
+        printf("Usage:\n");
+        printf("  %s [OPTIONS]       Show help/version\n", config::TARGET);
+        printf("  %s [FILE]          Open a file\n\n", config::TARGET);
         
         printf("Options:\n");
         printf("  %s-h%s, %s--help%s      Show this help message\n", 
