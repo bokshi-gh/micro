@@ -29,6 +29,45 @@ namespace editor {
         return rows[row].chars.length();
     }
 
+    // Calculate visual column (character position on screen)
+    int Editor::get_visual_column(int row, int col) const {
+        if (row < 0 || static_cast<size_t>(row) >= rows.size()) return 0;
+        
+        const std::string& text = rows[row].chars;
+        int visual_col = 0;
+        
+        // Count visual columns up to 'col' character index
+        for (int i = 0; i < col && i < static_cast<int>(text.length()); i++) {
+            if (text[i] == '\t') {
+                // Tab expands to next tab stop
+                visual_col += config::TAB_STOP - (visual_col % config::TAB_STOP);
+            } else {
+                visual_col++;
+            }
+        }
+        return visual_col;
+    }
+
+    // Get character index from visual column (for mouse click positioning)
+    int Editor::get_char_index_from_visual(int row, int visual_col) const {
+        if (row < 0 || static_cast<size_t>(row) >= rows.size()) return 0;
+        
+        const std::string& text = rows[row].chars;
+        int current_visual = 0;
+        
+        for (int i = 0; i < static_cast<int>(text.length()); i++) {
+            if (current_visual >= visual_col) {
+                return i;
+            }
+            if (text[i] == '\t') {
+                current_visual += config::TAB_STOP - (current_visual % config::TAB_STOP);
+            } else {
+                current_visual++;
+            }
+        }
+        return text.length();
+    }
+
     void Editor::insert_row(int at, const std::string& content) {
         Row new_row;
         new_row.chars = content;
@@ -48,38 +87,6 @@ namespace editor {
             size += row.chars.length() + 1;
         }
         return size > 0 ? size - 1 : 0;
-    }
-
-    void Editor::get_system_clipboard() {
-        // Try primary selection first (mouse selection)
-        FILE* fp = popen("xclip -o -selection primary 2>/dev/null", "r");
-        if (!fp) return;
-        
-        char buffer[1024];
-        std::string result;
-        while (fgets(buffer, sizeof(buffer), fp) != nullptr) {
-            result += buffer;
-        }
-        pclose(fp);
-        
-        // If primary is empty, try clipboard
-        if (result.empty()) {
-            fp = popen("xclip -selection clipboard -o 2>/dev/null", "r");
-            if (!fp) return;
-            
-            while (fgets(buffer, sizeof(buffer), fp) != nullptr) {
-                result += buffer;
-            }
-            pclose(fp);
-        }
-        
-        if (!result.empty()) {
-            // Remove trailing newline if present
-            if (!result.empty() && result.back() == '\n') {
-                result.pop_back();
-            }
-            clipboard = result;
-        }
     }
 
     void Editor::open_file(const std::string& filename) {
@@ -139,24 +146,6 @@ namespace editor {
         status_message = "Saved " + filename + " (" + std::to_string(get_file_size()) + "B)";
     }
 
-    void Editor::paste_clipboard() {
-        get_system_clipboard();
-        
-        if (clipboard.empty()) {
-            status_message = "Clipboard is empty";
-            return;
-        }
-        
-        for (char c : clipboard) {
-            if (c == '\n') {
-                split_row_at_cursor();
-            } else {
-                insert_char(c);
-            }
-        }
-        status_message = "Pasted from clipboard (" + std::to_string(clipboard.length()) + " chars)";
-    }
-
     void Editor::insert_char(char c) {
         if (rows.empty()) {
             insert_row(0, "");
@@ -170,10 +159,15 @@ namespace editor {
     }
 
     void Editor::insert_tab() {
-        int spaces = config::TAB_STOP - (cursor_col % config::TAB_STOP);
-        for (int i = 0; i < spaces; i++) {
-            insert_char(' ');
+        if (rows.empty()) {
+            insert_row(0, "");
         }
+        
+        auto& row = get_current_row();
+        row.chars.insert(cursor_col, 1, '\t');
+        cursor_col++;
+        dirty = true;
+        scroll_cursor();
     }
 
     void Editor::split_row_at_cursor() {
@@ -230,16 +224,21 @@ namespace editor {
 
     void Editor::move_cursor_up() {
         if (cursor_row > 0) {
+            int visual_col = get_visual_column(cursor_row, cursor_col);
             cursor_row--;
-            clamp_cursor();
+            // Try to keep the same visual column
+            int new_col = get_char_index_from_visual(cursor_row, visual_col);
+            cursor_col = std::min(new_col, get_row_length(cursor_row));
             scroll_cursor();
         }
     }
 
     void Editor::move_cursor_down() {
         if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
+            int visual_col = get_visual_column(cursor_row, cursor_col);
             cursor_row++;
-            clamp_cursor();
+            int new_col = get_char_index_from_visual(cursor_row, visual_col);
+            cursor_col = std::min(new_col, get_row_length(cursor_row));
             scroll_cursor();
         }
     }
@@ -283,6 +282,9 @@ namespace editor {
         int line_num_width = 4;
         int usable_cols = term_cols - line_num_width - 1;
         
+        // Get visual column for scrolling
+        int visual_col = get_visual_column(cursor_row, cursor_col);
+        
         if (cursor_row < scroll_row) {
             scroll_row = cursor_row;
         }
@@ -290,40 +292,15 @@ namespace editor {
             scroll_row = cursor_row - term_rows + 3;
         }
         
-        if (cursor_col < scroll_col) {
-            scroll_col = cursor_col;
+        if (visual_col < scroll_col) {
+            scroll_col = visual_col;
         }
-        if (cursor_col >= scroll_col + usable_cols) {
-            scroll_col = cursor_col - usable_cols + 1;
+        if (visual_col >= scroll_col + usable_cols) {
+            scroll_col = visual_col - usable_cols + 1;
         }
         
         if (scroll_row < 0) scroll_row = 0;
         if (scroll_col < 0) scroll_col = 0;
-    }
-
-    bool Editor::confirm_quit() {
-        status_message = "Save changes? (y)es / (n)o / (c)ancel";
-        
-        while (true) {
-            refresh_screen();
-            
-            Key key = read_key();
-            
-            if (key == Key::NONE) continue;
-            
-            char c = static_cast<char>(key);
-            if (c == 'y' || c == 'Y') {
-                save_file();
-                return true;
-            } else if (c == 'n' || c == 'N') {
-                dirty = false;
-                status_message = "Quit without saving";
-                return true;
-            } else if (c == 'c' || c == 'C' || key == Key::ESC) {
-                status_message = "Quit cancelled";
-                return false;
-            }
-        }
     }
 
     void Editor::draw_row(const Row& row, int row_num, int term_cols) {
@@ -337,12 +314,35 @@ namespace editor {
         write(STDOUT_FILENO, line_display.c_str(), line_display.length());
         
         // Display text with horizontal scrolling
-        int start = scroll_col;
-        int len = row.chars.length();
+        const std::string& text = row.chars;
+        int len = text.length();
         
-        if (start < len) {
-            int display_len = std::min(usable_cols, len - start);
-            write(STDOUT_FILENO, row.chars.c_str() + start, display_len);
+        // Find character index for scroll position
+        int char_index = 0;
+        int visual_pos = 0;
+        
+        while (char_index < len && visual_pos < scroll_col) {
+            if (text[char_index] == '\t') {
+                visual_pos += config::TAB_STOP - (visual_pos % config::TAB_STOP);
+            } else {
+                visual_pos++;
+            }
+            char_index++;
+        }
+        
+        // Render characters with tab expansion
+        int rendered = 0;
+        while (char_index < len && rendered < usable_cols) {
+            if (text[char_index] == '\t') {
+                int spaces = config::TAB_STOP - (rendered % config::TAB_STOP);
+                std::string tab_str(spaces, ' ');
+                write(STDOUT_FILENO, tab_str.c_str(), spaces);
+                rendered += spaces;
+            } else {
+                write(STDOUT_FILENO, &text[char_index], 1);
+                rendered++;
+            }
+            char_index++;
         }
     }
 
@@ -370,7 +370,10 @@ namespace editor {
     void Editor::move_cursor() {
         int line_num_width = 4;
         int screen_row = cursor_row - scroll_row;
-        int screen_col = cursor_col - scroll_col + line_num_width + 1;
+        
+        // Use visual column for cursor positioning
+        int visual_col = get_visual_column(cursor_row, cursor_col);
+        int screen_col = visual_col - scroll_col + line_num_width + 1;
         
         if (screen_row < 0) screen_row = 0;
         if (screen_col < 0) screen_col = 0;
@@ -413,9 +416,12 @@ namespace editor {
             size_str = std::to_string(file_size / (1024 * 1024)) + "MB";
         }
         
-        // FIXED: Show column number correctly - cursor_col is 0-based, display as 1-based
+        // Calculate visual column for display
+        int visual_col = get_visual_column(cursor_row, cursor_col);
+        
+        // Show: Ln X, Col Y (Y is the visual column, 1-based)
         std::string right_status = size_str + " | Ln " + std::to_string(cursor_row + 1) + 
-                                   ", Col " + std::to_string(cursor_col + 1);
+                                   ", Col " + std::to_string(visual_col + 1);
         
         int left_width = left_status.length();
         int right_width = right_status.length();
@@ -473,17 +479,40 @@ namespace editor {
             return Key::ESC;
         }
         
-        // Handle Ctrl combinations
         if (c >= 0 && c < 32) {
             switch (c) {
-                case 24: return Key::CTRL_X;  // Ctrl+X - Quit
-                case 19: return Key::CTRL_S;  // Ctrl+S - Save
-                case 22: return Key::CTRL_V;  // Ctrl+V - Paste
+                case 24: return Key::CTRL_X;
+                case 19: return Key::CTRL_S;
                 default: return static_cast<Key>(c);
             }
         }
         
         return static_cast<Key>(c);
+    }
+
+    bool Editor::confirm_quit() {
+        status_message = "Save changes? (y)es / (n)o / (c)ancel";
+        
+        while (true) {
+            refresh_screen();
+            
+            Key key = read_key();
+            
+            if (key == Key::NONE) continue;
+            
+            char c = static_cast<char>(key);
+            if (c == 'y' || c == 'Y') {
+                save_file();
+                return true;
+            } else if (c == 'n' || c == 'N') {
+                dirty = false;
+                status_message = "Quit without saving";
+                return true;
+            } else if (c == 'c' || c == 'C' || key == Key::ESC) {
+                status_message = "Quit cancelled";
+                return false;
+            }
+        }
     }
 
     void Editor::refresh_screen() {
@@ -518,10 +547,6 @@ namespace editor {
                 
             case Key::CTRL_S:
                 save_file();
-                break;
-                
-            case Key::CTRL_V:
-                paste_clipboard();
                 break;
                 
             case Key::ENTER:
