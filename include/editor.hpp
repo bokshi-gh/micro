@@ -30,9 +30,9 @@ namespace editor {
         std::string filename;
         std::vector<Row> rows;
         int cursor_row = 0;
-        int cursor_col = 0;  // Character index (0-based)
+        int cursor_col = 0;      // Character index (0-based)
         int scroll_row = 0;
-        int scroll_col = 0;  // Visual column scroll
+        int scroll_col = 0;      // Visual column scroll
         
         bool dirty = false;
         bool running = true;
@@ -45,7 +45,6 @@ namespace editor {
         const Row& get_current_row() const;
         int get_row_length(int row) const;
         int get_visual_column(int row, int col) const;
-        int get_char_index_from_visual(int row, int visual_col) const;
         void insert_row(int at, const std::string& content);
         void delete_row(int at);
         
@@ -75,7 +74,6 @@ namespace editor {
         void render_rows(int term_rows, int term_cols);
         void move_cursor();
         void show_status_bar(int term_rows, int term_cols);
-        void show_status_message(const std::string& message);
         void draw_row(const Row& row, int row_num, int term_cols);
         
         // Input
