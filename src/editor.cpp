@@ -51,14 +51,24 @@ namespace editor {
     }
 
     void Editor::set_system_clipboard(const std::string& text) {
-        // Use xclip if available
-        std::string cmd = "echo -n '" + text + "' | xclip -selection clipboard 2>/dev/null";
+        // Escape single quotes for shell
+        std::string escaped = text;
+        size_t pos = 0;
+        while ((pos = escaped.find("'", pos)) != std::string::npos) {
+            escaped.replace(pos, 1, "'\\''");
+            pos += 4;
+        }
+        
+        std::string cmd = "echo -n '" + escaped + "' | xclip -selection clipboard 2>/dev/null";
+        system(cmd.c_str());
+        
+        cmd = "echo -n '" + escaped + "' | xclip -selection primary 2>/dev/null";
         system(cmd.c_str());
     }
 
     void Editor::get_system_clipboard() {
-        // Try to get from system clipboard using xclip
-        FILE* fp = popen("xclip -selection clipboard -o 2>/dev/null", "r");
+        // Try primary selection first
+        FILE* fp = popen("xclip -o -selection primary 2>/dev/null", "r");
         if (!fp) return;
         
         char buffer[1024];
@@ -68,7 +78,22 @@ namespace editor {
         }
         pclose(fp);
         
+        // If primary is empty, try clipboard
+        if (result.empty()) {
+            fp = popen("xclip -selection clipboard -o 2>/dev/null", "r");
+            if (!fp) return;
+            
+            while (fgets(buffer, sizeof(buffer), fp) != nullptr) {
+                result += buffer;
+            }
+            pclose(fp);
+        }
+        
         if (!result.empty()) {
+            // Remove trailing newline if present
+            if (!result.empty() && result.back() == '\n') {
+                result.pop_back();
+            }
             clipboard = result;
         }
     }
@@ -139,7 +164,6 @@ namespace editor {
     }
 
     void Editor::paste_clipboard() {
-        // Get from system clipboard first
         get_system_clipboard();
         
         if (clipboard.empty()) {
@@ -302,9 +326,11 @@ namespace editor {
     }
 
     bool Editor::confirm_quit() {
-        status_message = "Save changes before quitting? (y)es / (n)o / (c)ancel";
+        status_message = "Save changes? (y)es / (n)o / (c)ancel";
         
         while (true) {
+            refresh_screen(); // Show the prompt
+            
             Key key = read_key();
             
             if (key == Key::NONE) continue;
@@ -315,6 +341,7 @@ namespace editor {
                 return true;
             } else if (c == 'n' || c == 'N') {
                 dirty = false;
+                status_message = "Quit without saving";
                 return true;
             } else if (c == 'c' || c == 'C' || key == Key::ESC) {
                 status_message = "Quit cancelled";
@@ -382,7 +409,6 @@ namespace editor {
         write(STDOUT_FILENO, "\x1b[0m", 4);
         
         if (!status_message.empty()) {
-            // Truncate message if too long
             std::string msg = status_message;
             if (msg.length() > static_cast<size_t>(term_cols)) {
                 msg = msg.substr(0, term_cols - 3) + "...";
@@ -409,7 +435,7 @@ namespace editor {
             size_str = std::to_string(file_size / (1024 * 1024)) + "MB";
         }
         
-        // FIXED: Show column number correctly
+        // FIXED: Show column number correctly with proper formatting
         std::string right_status = size_str + " | Ln " + std::to_string(cursor_row + 1) + 
                                    ", Col " + std::to_string(cursor_col + 1);
         
