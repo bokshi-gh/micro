@@ -36,7 +36,7 @@ namespace editor {
         int scroll_col = 0;
         bool dirty = false;
         bool running = true;
-        bool quit_confirmed = false;
+        std::string status_message;
         std::string clipboard;
         std::unique_ptr<terminal::TerminalGuard> terminal_guard;
 
@@ -67,13 +67,12 @@ namespace editor {
         // File operations
         void save_file();
         void open_file(const std::string& filename);
-        bool confirm_unsaved_changes();
+        size_t get_file_size() const;
         
         // Rendering
         void render_rows(int term_rows, int term_cols);
         void move_cursor();
-        void show_message_bar(int term_rows, int term_cols);
-        void show_status_bar(int term_cols);
+        void show_status_bar(int term_rows, int term_cols);
         void show_status_message(const std::string& message);
         void draw_row(const Row& row, int row_num, int term_cols);
         
