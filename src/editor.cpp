@@ -85,7 +85,22 @@ namespace editor {
     }
 
     bool Editor::confirm_unsaved_changes() {
-        return true;
+        show_status_message("Save changes? (y/n)");
+        
+        while (true) {
+            Key key = read_key();
+            if (key == Key::NONE) continue;
+            
+            char c = static_cast<char>(key);
+            if (c == 'y' || c == 'Y') {
+                save_file();
+                return true;
+            } else if (c == 'n' || c == 'N') {
+                return true;
+            } else if (key == Key::ESC || key == Key::CTRL_X) {
+                return false;
+            }
+        }
     }
 
     void Editor::insert_char(char c) {
@@ -125,6 +140,8 @@ namespace editor {
     }
 
     void Editor::delete_char() {
+        if (rows.empty()) return;
+        
         auto& current = get_current_row();
         if (static_cast<size_t>(cursor_col) < current.chars.length()) {
             current.chars.erase(cursor_col, 1);
@@ -138,6 +155,8 @@ namespace editor {
     }
 
     void Editor::backspace() {
+        if (rows.empty()) return;
+        
         if (cursor_col > 0) {
             auto& current = get_current_row();
             current.chars.erase(cursor_col - 1, 1);
@@ -169,13 +188,6 @@ namespace editor {
             }
         }
         show_status_message("Pasted from clipboard");
-    }
-
-    void Editor::copy_selection() {
-        if (!rows.empty()) {
-            clipboard = get_current_row().chars;
-            show_status_message("Copied line to clipboard");
-        }
     }
 
     void Editor::move_cursor_up() {
@@ -229,20 +241,19 @@ namespace editor {
     }
 
     void Editor::scroll_cursor() {
-        // Get terminal size
         auto [term_rows, term_cols] = terminal::get_window_size();
-        int line_num_width = 4; // Width for line numbers
+        int line_num_width = 4;
         int usable_cols = term_cols - line_num_width - 1;
         
         // Vertical scroll
         if (cursor_row < scroll_row) {
             scroll_row = cursor_row;
         }
-        if (cursor_row >= scroll_row + term_rows - 1) {
-            scroll_row = cursor_row - term_rows + 2;
+        if (cursor_row >= scroll_row + term_rows - 2) {
+            scroll_row = cursor_row - term_rows + 3;
         }
         
-        // Horizontal scroll (accounting for line numbers)
+        // Horizontal scroll
         if (cursor_col < scroll_col) {
             scroll_col = cursor_col;
         }
@@ -250,7 +261,6 @@ namespace editor {
             scroll_col = cursor_col - usable_cols + 1;
         }
         
-        // Ensure scroll doesn't go negative
         if (scroll_row < 0) scroll_row = 0;
         if (scroll_col < 0) scroll_col = 0;
     }
@@ -270,8 +280,7 @@ namespace editor {
         int len = row.chars.length();
         
         if (start >= len) {
-            // If scrolled past end, just show empty line
-            write(STDOUT_FILENO, "", 0);
+            // Empty line
         } else {
             int display_len = std::min(usable_cols, len - start);
             write(STDOUT_FILENO, row.chars.c_str() + start, display_len);
@@ -279,7 +288,7 @@ namespace editor {
     }
 
     void Editor::render_rows(int term_rows, int term_cols) {
-        int max_rows = std::min(term_rows - 1, static_cast<int>(rows.size()) - scroll_row);
+        int max_rows = std::min(term_rows - 2, static_cast<int>(rows.size()) - scroll_row);
         
         for (int i = 0; i < max_rows; i++) {
             terminal::clear_line();
@@ -292,9 +301,9 @@ namespace editor {
         }
         
         // Clear remaining lines
-        for (int i = max_rows; i < term_rows - 1; i++) {
+        for (int i = max_rows; i < term_rows - 2; i++) {
             terminal::clear_line();
-            if (i < term_rows - 2) {
+            if (i < term_rows - 3) {
                 write(STDOUT_FILENO, "\r\n", 2);
             }
         }
@@ -303,7 +312,7 @@ namespace editor {
     void Editor::move_cursor() {
         int line_num_width = 4;
         int screen_row = cursor_row - scroll_row;
-        int screen_col = cursor_col - scroll_col + line_num_width;
+        int screen_col = cursor_col - scroll_col + line_num_width + 1; // +1 for space after line number
         
         // Ensure cursor is within screen bounds
         if (screen_row < 0) screen_row = 0;
@@ -314,15 +323,24 @@ namespace editor {
         write(STDOUT_FILENO, buf, strlen(buf));
     }
 
+    void Editor::show_message_bar(int term_rows, int term_cols) {
+        terminal::move_cursor_to(term_rows - 2, 0);
+        terminal::clear_line();
+        
+        if (dirty) {
+            std::string msg = "\x1b[33m[modified]\x1b[0m";
+            write(STDOUT_FILENO, msg.c_str(), msg.length());
+        }
+    }
+
     void Editor::show_status_bar(int term_cols) {
         write(STDOUT_FILENO, "\x1b[0m", 4);
         terminal::clear_line();
         
         std::string left_status = filename;
         if (left_status.empty()) left_status = "[No Name]";
-        if (dirty) left_status += " [modified]";
         
-        // Show correct column number
+        // Show correct column number (1-indexed for display)
         std::string right_status = "Ln " + std::to_string(cursor_row + 1) + 
                                    ", Col " + std::to_string(cursor_col + 1);
         
@@ -388,7 +406,6 @@ namespace editor {
             switch (c) {
                 case 24: return Key::CTRL_X;
                 case 19: return Key::CTRL_S;
-                case 15: return Key::CTRL_O;
                 case 22: return Key::CTRL_V;
                 default: return static_cast<Key>(c);
             }
@@ -406,6 +423,10 @@ namespace editor {
         auto [term_rows, term_cols] = terminal::get_window_size();
         render_rows(term_rows, term_cols);
         
+        // Show message bar (dirty status)
+        show_message_bar(term_rows, term_cols);
+        
+        // Show status bar at bottom
         terminal::move_cursor_to(term_rows - 1, 0);
         show_status_bar(term_cols);
         
@@ -424,10 +445,6 @@ namespace editor {
                 
             case Key::CTRL_S:
                 save_file();
-                break;
-                
-            case Key::CTRL_O:
-                show_status_message("Open file: Not implemented yet");
                 break;
                 
             case Key::CTRL_V:
@@ -466,6 +483,9 @@ namespace editor {
                 move_cursor_right();
                 break;
                 
+            case Key::ESC:
+                break;
+                
             default:
                 if (static_cast<int>(key) >= 32 && static_cast<int>(key) <= 126) {
                     insert_char(static_cast<char>(key));
@@ -489,7 +509,6 @@ namespace editor {
     void Editor::shutdown() {
         if (dirty) {
             if (confirm_unsaved_changes()) {
-                save_file();
                 running = false;
             }
         } else {
