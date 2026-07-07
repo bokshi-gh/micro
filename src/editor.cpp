@@ -6,9 +6,6 @@
 #include <cstring>
 #include <unistd.h>
 #include <errno.h>
-#include <sstream>
-#include <iomanip>
-#include <sys/stat.h>
 #include <cstdlib>
 
 namespace editor {
@@ -36,36 +33,14 @@ namespace editor {
         const std::string& text = rows[row].chars;
         int visual_col = 0;
         
-        // Count visual columns up to 'col' character index
         for (int i = 0; i < col && i < static_cast<int>(text.length()); i++) {
             if (text[i] == '\t') {
-                // Tab expands to next tab stop
                 visual_col += config::TAB_STOP - (visual_col % config::TAB_STOP);
             } else {
                 visual_col++;
             }
         }
         return visual_col;
-    }
-
-    // Get character index from visual column (for mouse click positioning)
-    int Editor::get_char_index_from_visual(int row, int visual_col) const {
-        if (row < 0 || static_cast<size_t>(row) >= rows.size()) return 0;
-        
-        const std::string& text = rows[row].chars;
-        int current_visual = 0;
-        
-        for (int i = 0; i < static_cast<int>(text.length()); i++) {
-            if (current_visual >= visual_col) {
-                return i;
-            }
-            if (text[i] == '\t') {
-                current_visual += config::TAB_STOP - (current_visual % config::TAB_STOP);
-            } else {
-                current_visual++;
-            }
-        }
-        return text.length();
     }
 
     void Editor::insert_row(int at, const std::string& content) {
@@ -115,12 +90,13 @@ namespace editor {
         scroll_col = 0;
         
         std::string size_str;
-        if (get_file_size() < 1024) {
-            size_str = std::to_string(get_file_size()) + "B";
-        } else if (get_file_size() < 1024 * 1024) {
-            size_str = std::to_string(get_file_size() / 1024) + "KB";
+        size_t file_size = get_file_size();
+        if (file_size < 1024) {
+            size_str = std::to_string(file_size) + "B";
+        } else if (file_size < 1024 * 1024) {
+            size_str = std::to_string(file_size / 1024) + "KB";
         } else {
-            size_str = std::to_string(get_file_size() / (1024 * 1024)) + "MB";
+            size_str = std::to_string(file_size / (1024 * 1024)) + "MB";
         }
         status_message = "Opened " + filename + " (" + size_str + ")";
     }
@@ -226,9 +202,10 @@ namespace editor {
         if (cursor_row > 0) {
             int visual_col = get_visual_column(cursor_row, cursor_col);
             cursor_row--;
-            // Try to keep the same visual column
-            int new_col = get_char_index_from_visual(cursor_row, visual_col);
-            cursor_col = std::min(new_col, get_row_length(cursor_row));
+            int new_col = visual_col; // Simplified - keep visual position
+            // Find character index that matches visual column
+            int len = get_row_length(cursor_row);
+            cursor_col = std::min(new_col, len);
             scroll_cursor();
         }
     }
@@ -237,8 +214,8 @@ namespace editor {
         if (static_cast<size_t>(cursor_row) < rows.size() - 1) {
             int visual_col = get_visual_column(cursor_row, cursor_col);
             cursor_row++;
-            int new_col = get_char_index_from_visual(cursor_row, visual_col);
-            cursor_col = std::min(new_col, get_row_length(cursor_row));
+            int len = get_row_length(cursor_row);
+            cursor_col = std::min(visual_col, len);
             scroll_cursor();
         }
     }
@@ -265,6 +242,7 @@ namespace editor {
     }
 
     void Editor::move_cursor_to(int row, int col) {
+        if (rows.empty()) return;
         cursor_row = std::clamp(row, 0, static_cast<int>(rows.size()) - 1);
         cursor_col = std::clamp(col, 0, get_row_length(cursor_row));
         scroll_cursor();
@@ -272,9 +250,7 @@ namespace editor {
 
     void Editor::clamp_cursor() {
         int len = get_row_length(cursor_row);
-        if (cursor_col > len) {
-            cursor_col = len;
-        }
+        if (cursor_col > len) cursor_col = len;
     }
 
     void Editor::scroll_cursor() {
@@ -282,19 +258,14 @@ namespace editor {
         int line_num_width = 4;
         int usable_cols = term_cols - line_num_width - 1;
         
-        // Get visual column for scrolling
         int visual_col = get_visual_column(cursor_row, cursor_col);
         
-        if (cursor_row < scroll_row) {
-            scroll_row = cursor_row;
-        }
+        if (cursor_row < scroll_row) scroll_row = cursor_row;
         if (cursor_row >= scroll_row + term_rows - 2) {
             scroll_row = cursor_row - term_rows + 3;
         }
         
-        if (visual_col < scroll_col) {
-            scroll_col = visual_col;
-        }
+        if (visual_col < scroll_col) scroll_col = visual_col;
         if (visual_col >= scroll_col + usable_cols) {
             scroll_col = visual_col - usable_cols + 1;
         }
@@ -307,17 +278,14 @@ namespace editor {
         int line_num_width = 4;
         int usable_cols = term_cols - line_num_width - 1;
         
-        // Show line number
         std::string line_num = std::to_string(row_num + 1);
         std::string padding(line_num_width - line_num.length(), ' ');
         std::string line_display = "\x1b[2m" + padding + line_num + " \x1b[0m";
         write(STDOUT_FILENO, line_display.c_str(), line_display.length());
         
-        // Display text with horizontal scrolling
         const std::string& text = row.chars;
         int len = text.length();
         
-        // Find character index for scroll position
         int char_index = 0;
         int visual_pos = 0;
         
@@ -330,7 +298,6 @@ namespace editor {
             char_index++;
         }
         
-        // Render characters with tab expansion
         int rendered = 0;
         while (char_index < len && rendered < usable_cols) {
             if (text[char_index] == '\t') {
@@ -370,8 +337,6 @@ namespace editor {
     void Editor::move_cursor() {
         int line_num_width = 4;
         int screen_row = cursor_row - scroll_row;
-        
-        // Use visual column for cursor positioning
         int visual_col = get_visual_column(cursor_row, cursor_col);
         int screen_col = visual_col - scroll_col + line_num_width + 1;
         
@@ -384,10 +349,9 @@ namespace editor {
     }
 
     void Editor::show_status_bar(int term_rows, int term_cols) {
-        // Status message line (second from bottom)
+        // Status message line
         terminal::move_cursor_to(term_rows - 2, 0);
         terminal::clear_line();
-        write(STDOUT_FILENO, "\x1b[0m", 4);
         
         if (!status_message.empty()) {
             std::string msg = status_message;
@@ -397,10 +361,9 @@ namespace editor {
             write(STDOUT_FILENO, msg.c_str(), msg.length());
         }
         
-        // Status bar (bottom line)
+        // Status bar
         terminal::move_cursor_to(term_rows - 1, 0);
         terminal::clear_line();
-        write(STDOUT_FILENO, "\x1b[0m", 4);
         
         std::string left_status = filename;
         if (left_status.empty()) left_status = "[No Name]";
@@ -416,10 +379,7 @@ namespace editor {
             size_str = std::to_string(file_size / (1024 * 1024)) + "MB";
         }
         
-        // Calculate visual column for display
         int visual_col = get_visual_column(cursor_row, cursor_col);
-        
-        // Show: Ln X, Col Y (Y is the visual column, 1-based)
         std::string right_status = size_str + " | Ln " + std::to_string(cursor_row + 1) + 
                                    ", Col " + std::to_string(visual_col + 1);
         
@@ -440,12 +400,6 @@ namespace editor {
             std::string remaining(term_cols - status.length(), ' ');
             write(STDOUT_FILENO, remaining.c_str(), remaining.length());
         }
-        
-        write(STDOUT_FILENO, "\x1b[0m", 4);
-    }
-
-    void Editor::show_status_message(const std::string& message) {
-        status_message = message;
     }
 
     Key Editor::read_key() {
@@ -495,9 +449,7 @@ namespace editor {
         
         while (true) {
             refresh_screen();
-            
             Key key = read_key();
-            
             if (key == Key::NONE) continue;
             
             char c = static_cast<char>(key);
@@ -519,14 +471,12 @@ namespace editor {
         terminal::hide_cursor();
         terminal::clear_screen();
         terminal::move_cursor_to_home();
-        write(STDOUT_FILENO, "\x1b[0m", 4);
         
         auto [term_rows, term_cols] = terminal::get_window_size();
         render_rows(term_rows, term_cols);
         show_status_bar(term_rows, term_cols);
         move_cursor();
         terminal::show_cursor();
-        write(STDOUT_FILENO, "\x1b[0m", 4);
     }
 
     void Editor::process_keypress() {
@@ -536,9 +486,7 @@ namespace editor {
             case Key::CTRL_X:
                 if (dirty && !waiting_for_quit) {
                     waiting_for_quit = true;
-                    if (confirm_quit()) {
-                        running = false;
-                    }
+                    if (confirm_quit()) running = false;
                     waiting_for_quit = false;
                 } else {
                     running = false;
@@ -597,10 +545,6 @@ namespace editor {
             cursor_col = 0;
         } else {
             clamp_cursor();
-            if (static_cast<size_t>(cursor_row) >= rows.size()) {
-                cursor_row = rows.size() - 1;
-                clamp_cursor();
-            }
         }
         scroll_cursor();
     }
