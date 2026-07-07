@@ -27,12 +27,15 @@ namespace cli {
                config::color::YELLOW, config::color::RESET);
         printf("  %sCtrl-S%s              Save file\n", 
                config::color::YELLOW, config::color::RESET);
-        printf("  %sCtrl-V%s              Paste clipboard content\n", 
+        printf("  %sCtrl-V%s              Paste from clipboard\n", 
                config::color::YELLOW, config::color::RESET);
         printf("  %sArrow Keys%s          Navigate\n", 
                config::color::YELLOW, config::color::RESET);
         printf("  %sTab%s                 Insert tab (4 spaces)\n", 
                config::color::YELLOW, config::color::RESET);
+        printf("\nMouse Selection:\n");
+        printf("  Click and drag to select text (terminal native)\n");
+        printf("  Middle-click to paste from primary selection\n");
     }
 
     void show_version() {
