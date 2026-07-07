@@ -81,6 +81,7 @@ namespace editor {
         void show_status_bar(int term_rows, int term_cols);
         void show_status_message(const std::string& message);
         void draw_row(const Row& row, int row_num, int term_cols);
+        void clear_line();
         
         // Input
         Key read_key();
