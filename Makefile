@@ -69,7 +69,6 @@ test: all
 	./$(BIN_DIR)/$(TARGET) test.txt
 	@rm -f test.txt
 
-# Help target
 help:
 	@echo "Available targets:"
 	@echo "  all       - Build the editor"
@@ -77,7 +76,4 @@ help:
 	@echo "  install   - Install system-wide"
 	@echo "  uninstall - Remove system-wide installation"
 	@echo "  debug     - Build with debug symbols"
-	@echo "  release   - Build with optimizations"
-	@echo "  run       - Build and run the editor"
-	@echo "  test      - Build and run with a test file"
-	@echo "  help      - Show this help message"
+	@echo "  release   - Build with
