@@ -19,7 +19,6 @@ namespace editor {
         ESC = 27,
         CTRL_X = 24,   // Ctrl+X - Quit
         CTRL_S = 19,   // Ctrl+S - Save
-        CTRL_V = 22,   // Ctrl+V - Paste
     };
 
     class Editor {
@@ -39,13 +38,13 @@ namespace editor {
         bool running = true;
         bool waiting_for_quit = false;
         std::string status_message;
-        std::string clipboard;
         std::unique_ptr<terminal::TerminalGuard> terminal_guard;
 
         // Row operations
         Row& get_current_row();
         const Row& get_current_row() const;
         int get_row_length(int row) const;
+        int get_visual_column(int row, int col) const;  // <-- NEW
         void insert_row(int at, const std::string& content);
         void delete_row(int at);
         
@@ -55,8 +54,6 @@ namespace editor {
         void split_row_at_cursor();
         void delete_char();
         void backspace();
-        void paste_clipboard();
-        void get_system_clipboard();
         
         // Navigation
         void move_cursor_up();
