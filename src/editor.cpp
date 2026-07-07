@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sstream>
 #include <iomanip>
+#include <sys/stat.h>
 
 namespace editor {
     Editor::Editor() {
@@ -40,12 +41,23 @@ namespace editor {
         dirty = true;
     }
 
+    size_t Editor::get_file_size() const {
+        size_t size = 0;
+        for (const auto& row : rows) {
+            size += row.chars.length() + 1; // +1 for newline
+        }
+        return size > 0 ? size - 1 : 0; // Remove last newline
+    }
+
     void Editor::open_file(const std::string& filename) {
         this->filename = filename;
         rows.clear();
         
         std::ifstream file(filename);
-        if (!file.is_open()) return;
+        if (!file.is_open()) {
+            status_message = "New file";
+            return;
+        }
         
         std::string line;
         while (std::getline(file, line)) {
@@ -61,17 +73,28 @@ namespace editor {
         cursor_col = 0;
         scroll_row = 0;
         scroll_col = 0;
+        
+        // Show file info
+        std::string size_str;
+        if (get_file_size() < 1024) {
+            size_str = std::to_string(get_file_size()) + "B";
+        } else if (get_file_size() < 1024 * 1024) {
+            size_str = std::to_string(get_file_size() / 1024) + "KB";
+        } else {
+            size_str = std::to_string(get_file_size() / (1024 * 1024)) + "MB";
+        }
+        status_message = "Opened " + filename + " (" + size_str + ")";
     }
 
     void Editor::save_file() {
         if (filename.empty()) {
-            show_status_message("No filename specified");
+            status_message = "No filename specified";
             return;
         }
         
         std::ofstream file(filename);
         if (!file.is_open()) {
-            show_status_message("Failed to save file: " + filename);
+            status_message = "Failed to save: " + filename;
             return;
         }
         
@@ -81,26 +104,7 @@ namespace editor {
         
         file.close();
         dirty = false;
-        show_status_message("File saved: " + filename);
-    }
-
-    bool Editor::confirm_unsaved_changes() {
-        show_status_message("Save changes? (y/n)");
-        
-        while (true) {
-            Key key = read_key();
-            if (key == Key::NONE) continue;
-            
-            char c = static_cast<char>(key);
-            if (c == 'y' || c == 'Y') {
-                save_file();
-                return true;
-            } else if (c == 'n' || c == 'N') {
-                return true;
-            } else if (key == Key::ESC || key == Key::CTRL_X) {
-                return false;
-            }
-        }
+        status_message = "Saved " + filename + " (" + std::to_string(get_file_size()) + "B)";
     }
 
     void Editor::insert_char(char c) {
@@ -176,7 +180,7 @@ namespace editor {
 
     void Editor::paste_clipboard() {
         if (clipboard.empty()) {
-            show_status_message("Clipboard is empty");
+            status_message = "Clipboard is empty";
             return;
         }
         
@@ -187,7 +191,7 @@ namespace editor {
                 insert_char(c);
             }
         }
-        show_status_message("Pasted from clipboard");
+        status_message = "Pasted from clipboard";
     }
 
     void Editor::move_cursor_up() {
@@ -312,9 +316,8 @@ namespace editor {
     void Editor::move_cursor() {
         int line_num_width = 4;
         int screen_row = cursor_row - scroll_row;
-        int screen_col = cursor_col - scroll_col + line_num_width + 1; // +1 for space after line number
+        int screen_col = cursor_col - scroll_col + line_num_width + 1;
         
-        // Ensure cursor is within screen bounds
         if (screen_row < 0) screen_row = 0;
         if (screen_col < 0) screen_col = 0;
         
@@ -323,25 +326,44 @@ namespace editor {
         write(STDOUT_FILENO, buf, strlen(buf));
     }
 
-    void Editor::show_message_bar(int term_rows, int term_cols) {
+    void Editor::show_status_bar(int term_rows, int term_cols) {
+        // Status message line (second from bottom)
         terminal::move_cursor_to(term_rows - 2, 0);
         terminal::clear_line();
-        
-        if (dirty) {
-            std::string msg = "\x1b[33m[modified]\x1b[0m";
-            write(STDOUT_FILENO, msg.c_str(), msg.length());
-        }
-    }
-
-    void Editor::show_status_bar(int term_cols) {
         write(STDOUT_FILENO, "\x1b[0m", 4);
-        terminal::clear_line();
         
+        if (!status_message.empty()) {
+            write(STDOUT_FILENO, status_message.c_str(), status_message.length());
+            // Clear rest of line
+            int remaining = term_cols - status_message.length();
+            if (remaining > 0) {
+                std::string spaces(remaining, ' ');
+                write(STDOUT_FILENO, spaces.c_str(), spaces.length());
+            }
+        }
+        
+        // Status bar (bottom line)
+        terminal::move_cursor_to(term_rows - 1, 0);
+        terminal::clear_line();
+        write(STDOUT_FILENO, "\x1b[0m", 4);
+        
+        // Left side: filename + modified indicator
         std::string left_status = filename;
         if (left_status.empty()) left_status = "[No Name]";
+        if (dirty) left_status += " [modified]";
         
-        // Show correct column number (1-indexed for display)
-        std::string right_status = "Ln " + std::to_string(cursor_row + 1) + 
+        // Right side: file size + line/col
+        std::string size_str;
+        size_t file_size = get_file_size();
+        if (file_size < 1024) {
+            size_str = std::to_string(file_size) + "B";
+        } else if (file_size < 1024 * 1024) {
+            size_str = std::to_string(file_size / 1024) + "KB";
+        } else {
+            size_str = std::to_string(file_size / (1024 * 1024)) + "MB";
+        }
+        
+        std::string right_status = size_str + " | Ln " + std::to_string(cursor_row + 1) + 
                                    ", Col " + std::to_string(cursor_col + 1);
         
         int left_width = left_status.length();
@@ -366,9 +388,7 @@ namespace editor {
     }
 
     void Editor::show_status_message(const std::string& message) {
-        terminal::clear_line();
-        write(STDOUT_FILENO, message.c_str(), message.length());
-        write(STDOUT_FILENO, "\x1b[0m", 4);
+        status_message = message;
     }
 
     Key Editor::read_key() {
@@ -423,12 +443,8 @@ namespace editor {
         auto [term_rows, term_cols] = terminal::get_window_size();
         render_rows(term_rows, term_cols);
         
-        // Show message bar (dirty status)
-        show_message_bar(term_rows, term_cols);
-        
-        // Show status bar at bottom
-        terminal::move_cursor_to(term_rows - 1, 0);
-        show_status_bar(term_cols);
+        // Show status bar and message
+        show_status_bar(term_rows, term_cols);
         
         move_cursor();
         terminal::show_cursor();
@@ -484,6 +500,7 @@ namespace editor {
                 break;
                 
             case Key::ESC:
+                status_message = "";
                 break;
                 
             default:
@@ -508,12 +525,10 @@ namespace editor {
 
     void Editor::shutdown() {
         if (dirty) {
-            if (confirm_unsaved_changes()) {
-                running = false;
-            }
-        } else {
-            running = false;
+            status_message = "File has unsaved changes. Press Ctrl+S to save, Ctrl+X again to quit without saving";
+            return;
         }
+        running = false;
     }
 
     void Editor::run(const std::string& filename) {
