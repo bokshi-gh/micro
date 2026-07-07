@@ -7,7 +7,6 @@ namespace config {
     constexpr const char* VERSION = "1.0.0";
     constexpr const char* DESCRIPTION = "A minimal terminal text editor";
     
-    // ANSI color codes
     namespace color {
         constexpr const char* RESET   = "\x1b[0m";
         constexpr const char* GREEN   = "\x1b[32m";
@@ -19,7 +18,6 @@ namespace config {
         constexpr const char* DIM     = "\x1b[2m";
     }
     
-    // Editor defaults
     constexpr int TAB_STOP = 4;
     constexpr int DEFAULT_ROWS = 24;
     constexpr int DEFAULT_COLS = 80;
